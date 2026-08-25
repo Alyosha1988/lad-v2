@@ -528,6 +528,125 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   box-shadow: 3px 5px 0 rgba(26, 23, 20, 0.05);
 }
 
+.map-board {
+  position: relative;
+  border: 1.8px solid rgba(26, 23, 20, 0.35);
+  background:
+    radial-gradient(circle at 50% 48%, rgba(177, 77, 50, 0.08), transparent 42%),
+    #faf4e8;
+  border-radius: 24px;
+  padding: 0.4rem 0.2rem 0.55rem;
+  margin-bottom: 1rem;
+  box-shadow: 3px 5px 0 rgba(26, 23, 20, 0.06);
+  overflow: hidden;
+}
+
+.map-svg {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  height: auto;
+}
+
+.map-orbit-ring {
+  stroke: rgba(26, 23, 20, 0.18);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 6;
+}
+
+.map-hub {
+  fill: #fff8ee;
+  stroke: #1a1714;
+  stroke-width: 2.4;
+  filter: drop-shadow(1px 2px 0 rgba(26, 23, 20, 0.08));
+}
+
+.map-hub-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  fill: #1a1714;
+}
+
+.map-hub-sub {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  fill: #6e655a;
+}
+
+.map-ray {
+  cursor: pointer;
+}
+
+.map-ray-line {
+  stroke: #1a1714;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.map-ray-node {
+  fill: #f7f1e4;
+  stroke: #b14d32;
+  stroke-width: 1.8;
+}
+
+.map-ray:hover .map-ray-node,
+.map-ray:focus .map-ray-node {
+  fill: #f3e0d4;
+  stroke: #8a3a24;
+  stroke-width: 2.2;
+}
+
+.map-ray:hover .map-ray-line,
+.map-ray:focus .map-ray-line {
+  opacity: 0.95;
+  stroke: #b14d32;
+  stroke-width: 2;
+}
+
+.map-ray-chord {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  fill: #1a1714;
+  pointer-events: none;
+}
+
+.map-ray-kind {
+  font-family: var(--font-body);
+  font-size: 7.5px;
+  letter-spacing: 0.02em;
+  fill: #6e655a;
+  pointer-events: none;
+}
+
+.map-path-list {
+  margin-bottom: 0.4rem;
+}
+
+.map-gate {
+  border: 1.8px solid rgba(26, 23, 20, 0.28);
+  border-radius: 22px;
+  background: #faf4e8;
+  padding: 0.85rem 1rem 1.1rem;
+  box-shadow: 3px 5px 0 rgba(26, 23, 20, 0.05);
+}
+
+.map-gate-sketch {
+  margin-bottom: 0.5rem;
+}
+
+.chip-btn {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent-deep);
+  border-color: rgba(177, 77, 50, 0.45);
+  background: rgba(177, 77, 50, 0.08);
+}
+
 .map-center {
   width: 5.8rem;
   height: 5.8rem;

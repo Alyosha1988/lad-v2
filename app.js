@@ -551,6 +551,9 @@ function renderSong() {
       }).join("")}
     </div>
     <div class="actions">
+      <button type="button" class="btn btn-glow" id="exportPdf" ${filled.length ? "" : "disabled"}>
+        Выгрузить PDF
+      </button>
       <button type="button" class="btn btn-primary" id="toMap">К карте</button>
       <button type="button" class="btn btn-ghost" id="resetSong">Очистить</button>
     </div>
@@ -581,6 +584,9 @@ function renderSong() {
   document.getElementById("resetSong").addEventListener("click", () => {
     SONG_SLOTS.forEach((s) => (state.song[s.id] = null));
     renderSong();
+  });
+  document.getElementById("exportPdf")?.addEventListener("click", () => {
+    if (typeof exportSongToPdf === "function") exportSongToPdf();
   });
 }
 

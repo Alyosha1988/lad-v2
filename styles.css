@@ -600,7 +600,16 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   gap: 0.45rem;
 }
 
-.btn-block { width: 100%; }
+.btn:disabled,
+.btn-glow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-glow:disabled {
+  filter: grayscale(0.35);
+}
 
 .song-list { display: grid; gap: 0.7rem; }
 

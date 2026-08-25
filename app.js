@@ -41,7 +41,7 @@ const SONG_SLOTS = [
 ];
 
 const state = {
-  screen: "mood", // mood | start | map | path | song
+  screen: "mood", // mood | start | discover | map | path | song
   mood: null,
   start: null,
   paths: [],
@@ -53,6 +53,11 @@ const state = {
     bridge: null,
   },
   mapFocus: null,
+  discover: {
+    frets: [-1, -1, -1, -1, -1, -1],
+    piano: [], // midi numbers
+    baseFret: 1,
+  },
 };
 
 const stage = document.getElementById("stage");
@@ -72,7 +77,7 @@ function setScreen(name) {
   document.querySelectorAll(".tab").forEach((tab) => {
     const nav = tab.dataset.nav;
     const active =
-      (nav === "mood" && (name === "mood" || name === "start")) ||
+      (nav === "mood" && (name === "mood" || name === "start" || name === "discover")) ||
       (nav === "map" && (name === "map" || name === "path")) ||
       (nav === "song" && name === "song");
     tab.classList.toggle("is-active", active);
@@ -84,6 +89,7 @@ function setScreen(name) {
 
 function goBack() {
   if (state.screen === "start") setScreen("mood");
+  else if (state.screen === "discover") setScreen("start");
   else if (state.screen === "map") setScreen(state.start ? "start" : "mood");
   else if (state.screen === "path") setScreen("map");
   else if (state.screen === "song") setScreen(state.activePath ? "path" : "map");
@@ -110,6 +116,7 @@ function loadPaths() {
 function render() {
   if (state.screen === "mood") renderMood();
   else if (state.screen === "start") renderStart();
+  else if (state.screen === "discover") renderDiscover();
   else if (state.screen === "map") renderMap();
   else if (state.screen === "path") renderPath();
   else if (state.screen === "song") renderSong();
@@ -172,6 +179,10 @@ function renderStart() {
     <div class="chip-row">
       <button type="button" class="chip chip-btn" id="changeMood">${mood?.title || ""} ▾</button>
     </div>
+    <button type="button" class="btn btn-glow btn-block" id="toDiscover">
+      Не знаю аккорд — показать на грифе / клавишах
+    </button>
+    <p class="section-hand" style="margin-top:1rem">или выбери из списка</p>
     <div class="chord-grid">
       ${START_CHORDS.map(
         (c) => `<button type="button" class="chord-pick" data-chord="${c}">${c}</button>`
@@ -179,6 +190,14 @@ function renderStart() {
     </div>
   `;
   document.getElementById("changeMood")?.addEventListener("click", () => setScreen("mood"));
+  document.getElementById("toDiscover")?.addEventListener("click", () => {
+    state.discover = {
+      frets: typeof emptyGuitarFrets === "function" ? emptyGuitarFrets() : [-1, -1, -1, -1, -1, -1],
+      piano: [],
+      baseFret: 1,
+    };
+    setScreen("discover");
+  });
   stage.querySelectorAll("[data-chord]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.start = btn.dataset.chord;
@@ -187,6 +206,213 @@ function renderStart() {
       setScreen("map");
     });
   });
+}
+
+function discoverInstrumentIsPiano() {
+  if (typeof getInstrument === "function") return getInstrument() === "piano";
+  try {
+    return localStorage.getItem("lad-instrument") === "piano";
+  } catch (_) {
+    return false;
+  }
+}
+
+function renderDiscoverGuitar(matches) {
+  const frets = state.discover.frets;
+  const base = state.discover.baseFret || 1;
+  const nut = [0, 1, 2, 3, 4].map((rel) => base + rel);
+  const stringNames = ["E", "A", "D", "G", "B", "e"];
+
+  const nutRow = frets
+    .map((f, s) => {
+      const isMute = f < 0;
+      const isOpen = f === 0;
+      return `<button type="button" class="fb-nut ${isMute ? "is-mute" : ""} ${isOpen ? "is-open" : ""}" data-nut="${s}" aria-label="Струна ${stringNames[s]}: ${isMute ? "приглушена" : isOpen ? "открыта" : "зажата"}">${isMute ? "×" : isOpen ? "○" : "·"}</button>`;
+    })
+    .join("");
+
+  const grid = nut
+    .map((absFret) => {
+      const cells = frets
+        .map((f, s) => {
+          const on = f === absFret;
+          return `<button type="button" class="fb-cell ${on ? "is-on" : ""}" data-string="${s}" data-fret="${absFret}" aria-label="Струна ${stringNames[s]}, лад ${absFret}"></button>`;
+        })
+        .join("");
+      return `<div class="fb-row"><span class="fb-fretno">${absFret}</span>${cells}</div>`;
+    })
+    .join("");
+
+  return `
+    <div class="discover-board">
+      <div class="fb-toolbar">
+        <button type="button" class="chip chip-btn" id="fbPrev" ${base <= 1 ? "disabled" : ""}>← лады</button>
+        <span class="fb-window">лады ${base}–${base + 4}</span>
+        <button type="button" class="chip chip-btn" id="fbNext" ${base >= 12 ? "disabled" : ""}>лады →</button>
+      </div>
+      <p class="fb-hint">× / ○ сверху — приглушить или открыть · точка на ладу — зажать</p>
+      <div class="fb">
+        <div class="fb-row fb-nutrow"><span class="fb-fretno">0</span>${nutRow}</div>
+        ${grid}
+      </div>
+      <div class="fb-strings">${stringNames.map((n) => `<span>${n}</span>`).join("")}</div>
+    </div>
+    ${renderDiscoverMatches(matches)}
+  `;
+}
+
+function renderDiscoverPiano(matches) {
+  const selected = new Set(state.discover.piano || []);
+  // Two octaves C3–B4
+  const start = 48;
+  const end = 71;
+  const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+  const whites = [];
+  for (let m = start; m <= end; m++) if (!isBlack(m)) whites.push(m);
+
+  const whiteHtml = whites
+    .map((m) => {
+      const on = selected.has(m);
+      const name = (typeof PC_NAMES !== "undefined" ? PC_NAMES : [])[m % 12] || "";
+      return `<button type="button" class="pk-white ${on ? "is-on" : ""}" data-midi="${m}" aria-label="${name}">${m % 12 === 0 ? name : ""}</button>`;
+    })
+    .join("");
+
+  const blackHtml = whites
+    .map((m, i) => {
+      const nb = m + 1;
+      if (nb > end || !isBlack(nb)) return `<span class="pk-gap"></span>`;
+      const on = selected.has(nb);
+      return `<button type="button" class="pk-black ${on ? "is-on" : ""}" data-midi="${nb}" style="left: calc(${i} * var(--pk-w) + var(--pk-w) * 0.68)" aria-label="black"></button>`;
+    })
+    .join("");
+
+  return `
+    <div class="discover-board">
+      <p class="fb-hint">Нажми клавиши, которые звучат — можно несколько</p>
+      <div class="pk">
+        <div class="pk-whites">${whiteHtml}</div>
+        <div class="pk-blacks">${blackHtml}</div>
+      </div>
+    </div>
+    ${renderDiscoverMatches(matches)}
+  `;
+}
+
+function renderDiscoverMatches(matches) {
+  if (!matches.length) {
+    return `<p class="discover-empty">Поставь хотя бы две ноты — подскажу возможные аккорды</p>`;
+  }
+  return `
+    <p class="section-title">Похоже на</p>
+    <div class="discover-matches">
+      ${matches
+        .map(
+          (m, i) => `
+        <button type="button" class="discover-hit ${i === 0 ? "is-best" : ""}" data-pick="${m.symbol}">
+          <span class="sym">${m.symbol}</span>
+          <span class="why">${m.reason || ""}</span>
+        </button>`
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderDiscover() {
+  const isPiano = discoverInstrumentIsPiano();
+  const matches = isPiano
+    ? identifyFromMidis(state.discover.piano || [])
+    : identifyFromFrets(state.discover.frets || []);
+
+  stage.innerHTML = `
+    <p class="kicker">Узнать аккорд</p>
+    <h1 class="h1">${isPiano ? "Клавиши" : "Гриф"}</h1>
+    <p class="hand-note">${
+      isPiano
+        ? "отметь звучащие клавиши — как на рояле"
+        : "отметь зажатые и приглушённые струны — как на грифе"
+    }</p>
+    <div class="chip-row">
+      <span class="chip">${isPiano ? "режим: рояль" : "режим: гитара"}</span>
+      <button type="button" class="chip chip-btn" id="discoverClear">сбросить</button>
+    </div>
+    ${isPiano ? renderDiscoverPiano(matches) : renderDiscoverGuitar(matches)}
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="discoverBack">К списку аккордов</button>
+    </div>
+  `;
+
+  const pick = (symbol) => {
+    state.start = symbol;
+    state.mapFocus = null;
+    loadPaths();
+    setScreen("map");
+  };
+
+  stage.querySelectorAll("[data-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => pick(btn.dataset.pick));
+  });
+
+  document.getElementById("discoverBack")?.addEventListener("click", () => setScreen("start"));
+  document.getElementById("discoverClear")?.addEventListener("click", () => {
+    state.discover.frets = emptyGuitarFrets();
+    state.discover.piano = [];
+    renderDiscover();
+  });
+
+  if (isPiano) {
+    stage.querySelectorAll("[data-midi]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const midi = Number(btn.dataset.midi);
+        const set = new Set(state.discover.piano || []);
+        if (set.has(midi)) set.delete(midi);
+        else set.add(midi);
+        state.discover.piano = [...set].sort((a, b) => a - b);
+        // preview sound
+        if (typeof playMidiNotes === "function" && set.has(midi)) {
+          try {
+            playMidiNotes([midi]);
+          } catch (_) {}
+        }
+        renderDiscover();
+      });
+    });
+  } else {
+    document.getElementById("fbPrev")?.addEventListener("click", () => {
+      state.discover.baseFret = Math.max(1, (state.discover.baseFret || 1) - 1);
+      renderDiscover();
+    });
+    document.getElementById("fbNext")?.addEventListener("click", () => {
+      state.discover.baseFret = Math.min(12, (state.discover.baseFret || 1) + 1);
+      renderDiscover();
+    });
+    stage.querySelectorAll("[data-nut]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = Number(btn.dataset.nut);
+        const cur = state.discover.frets[s];
+        // cycle: mute → open → mute (if fretted, go open)
+        if (cur < 0) state.discover.frets[s] = 0;
+        else state.discover.frets[s] = -1;
+        renderDiscover();
+      });
+    });
+    stage.querySelectorAll("[data-string][data-fret]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = Number(btn.dataset.string);
+        const fret = Number(btn.dataset.fret);
+        if (state.discover.frets[s] === fret) state.discover.frets[s] = -1;
+        else state.discover.frets[s] = fret;
+        // play voicing preview
+        if (typeof playVoicing === "function") {
+          try {
+            playVoicing(state.discover.frets);
+          } catch (_) {}
+        }
+        renderDiscover();
+      });
+    });
+  }
 }
 
 const MOOD_FLAVOR = {
@@ -609,6 +835,7 @@ document.querySelectorAll("[data-instrument]").forEach((btn) => {
     // audio.js handles sound; refresh fingerings for guitar/piano
     setTimeout(() => {
       if (state.screen === "path") renderPath();
+      else if (state.screen === "discover") renderDiscover();
       else if (state.screen === "song") {
         if (typeof refreshAllPathDiagrams === "function") refreshAllPathDiagrams();
         else renderSong();

@@ -1,7 +1,7 @@
 /**
  * Лад — Song Companion v2
  * Комната настроения → аккорд → карта → ход → дорожка
- * Стиль: бумага и уголь. Пульс = бывший groove.
+ * Стиль: ночная топография + янтарное свечение.
  */
 
 const V2_MOODS = [
@@ -79,7 +79,6 @@ function setScreen(name) {
   });
   btnBack.hidden = name === "mood";
   document.body.classList.toggle("is-mood-home", name === "mood");
-  document.body.classList.toggle("is-map-night", name === "map");
   render();
 }
 
@@ -122,15 +121,15 @@ function renderMood() {
       <div class="hero-copy">
         <h1 class="h1 brand-hero">Лад</h1>
         <p class="eyebrow">музыка в твоём ритме</p>
-        <p class="hand">с какой погоды<br/>начинается песня?</p>
+        <p class="hand">Исследуй связи между аккордами. Собирай гармоничные пути.</p>
       </div>
       <figure class="hero-art">
-        <img src="icons/header_sketch.jpg" alt="" />
+        <img src="icons/map_topo_night.jpg" alt="" />
       </figure>
     </section>
 
     <p class="section-title">Моя <span>Mood-Room</span></p>
-    <p class="section-hand">выбирай своё состояние</p>
+    <p class="section-hand">выбери оттенок — он окрасит карту и дорожку</p>
 
     <div class="mood-orbit">
       ${V2_MOODS.map(
@@ -147,7 +146,7 @@ function renderMood() {
       <span class="mark">✦</span>
       <span>
         <span class="title">Твой Лад</span>
-        <span class="sub">твои ходы, плейлисты и заметки</span>
+        <span class="sub">ходы, плейлисты и заметки</span>
       </span>
       <span class="chev">›</span>
     </button>
@@ -157,6 +156,7 @@ function renderMood() {
       state.mood = btn.dataset.mood;
       state.start = null;
       state.activePath = null;
+      state.mapFocus = null;
       setScreen("start");
     });
   });
@@ -166,16 +166,19 @@ function renderMood() {
 function renderStart() {
   const mood = moodById(state.mood);
   stage.innerHTML = `
-    <p class="kicker">Вход в комнату</p>
+    <p class="kicker">Точка входа</p>
     <h1 class="h1">${mood?.title || ""}</h1>
-    <p class="hand-note">с какого аккорда войти?</p>
-    <div class="chip-row"><span class="chip">${mood?.title}</span></div>
+    <p class="hand-note">выбери тонику — она станет сердцем карты</p>
+    <div class="chip-row">
+      <button type="button" class="chip chip-btn" id="changeMood">${mood?.title || ""} ▾</button>
+    </div>
     <div class="chord-grid">
       ${START_CHORDS.map(
         (c) => `<button type="button" class="chord-pick" data-chord="${c}">${c}</button>`
       ).join("")}
     </div>
   `;
+  document.getElementById("changeMood")?.addEventListener("click", () => setScreen("mood"));
   stage.querySelectorAll("[data-chord]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.start = btn.dataset.chord;
@@ -488,6 +491,11 @@ function renderPath() {
         <button type="button" class="btn btn-ghost" id="anotherPath">Другой ход</button>
       </div>
     </div>
+    <div class="actions">
+      <button type="button" class="btn btn-glow btn-block" id="pathToSong">
+        <span aria-hidden="true">✦</span> Собрать в дорожку <span aria-hidden="true">→</span>
+      </button>
+    </div>
   `;
   stage.querySelectorAll("[data-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -502,6 +510,7 @@ function renderPath() {
     });
   });
   document.getElementById("anotherPath").addEventListener("click", () => setScreen("map"));
+  document.getElementById("pathToSong").addEventListener("click", () => setScreen("song"));
 }
 
 function renderSong() {
@@ -510,7 +519,7 @@ function renderSong() {
   stage.innerHTML = `
     <p class="kicker">Дорожка песни</p>
     <h1 class="h1">Соберите форму</h1>
-    <p class="hand-note">аппликатуры и ▶ — прямо в частях; инструмент сверху</p>
+    <p class="hand-note">аппликатуры и ▶ прямо в частях · инструмент сверху</p>
     <div class="chip-row">
       ${mood ? `<span class="chip">${mood.title}</span>` : ""}
       ${state.start ? `<span class="chip">старт ${state.start}</span>` : ""}

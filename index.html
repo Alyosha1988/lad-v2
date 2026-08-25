@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Лад — Song Companion v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="paper" aria-hidden="true"></div>
+
+  <div class="shell">
+    <header class="topbar">
+      <button type="button" class="icon-btn" id="btnBack" aria-label="Назад" hidden>←</button>
+      <div class="brand-wrap">
+        <p class="brand">Лад</p>
+        <p class="brand-ver">Song Companion v2</p>
+      </div>
+      <div class="instrument-bar" role="group" aria-label="Звук">
+        <button type="button" class="instrument-btn" data-instrument="acoustic" aria-label="Акустическая гитара" aria-pressed="false">
+          <img src="icons/acoustic.png" alt="" width="40" height="40" />
+        </button>
+        <button type="button" class="instrument-btn" data-instrument="distortion" aria-label="С дисторшн" aria-pressed="false">
+          <img src="icons/distortion.png" alt="" width="40" height="40" />
+        </button>
+        <button type="button" class="instrument-btn" data-instrument="piano" aria-label="Фортепиано" aria-pressed="false">
+          <img src="icons/piano.png" alt="" width="40" height="40" />
+        </button>
+      </div>
+    </header>
+
+    <main class="stage" id="stage" aria-live="polite"></main>
+
+    <nav class="tabbar" aria-label="Разделы">
+      <button type="button" class="tab is-active" data-nav="mood">Комната</button>
+      <button type="button" class="tab" data-nav="map">Карта</button>
+      <button type="button" class="tab" data-nav="song">Дорожка</button>
+    </nav>
+  </div>
+
+  <script src="catalog.js"></script>
+  <script src="fingering.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

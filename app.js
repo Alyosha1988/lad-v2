@@ -77,6 +77,7 @@ function setScreen(name) {
     tab.classList.toggle("is-active", active);
   });
   btnBack.hidden = name === "mood";
+  document.body.classList.toggle("is-mood-home", name === "mood");
   render();
 }
 

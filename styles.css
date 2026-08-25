@@ -653,6 +653,16 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   padding: 0.9rem 1rem;
 }
 
+.song-part .diag-block {
+  margin: 0.65rem 0 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed rgba(26, 23, 20, 0.16);
+}
+
+.song-part .diag-hint {
+  margin-bottom: 0.35rem;
+}
+
 .song-part.is-empty {
   border-style: dashed;
   color: var(--ink-mute);

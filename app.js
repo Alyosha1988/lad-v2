@@ -275,7 +275,7 @@ function renderSong() {
   stage.innerHTML = `
     <p class="kicker">Дорожка песни</p>
     <h1 class="h1">Соберите форму</h1>
-    <p class="hand-note">клади ходы в части — как черновик в блокноте</p>
+    <p class="hand-note">аппликатуры и ▶ — прямо в частях; инструмент сверху</p>
     <div class="chip-row">
       ${mood ? `<span class="chip">${mood.title}</span>` : ""}
       ${state.start ? `<span class="chip">старт ${state.start}</span>` : ""}
@@ -298,6 +298,7 @@ function renderSong() {
             <p class="label">${slot.title}</p>
             <p class="route">${item.path.join(" → ")}</p>
             <p class="meta">${moodTitle} · ${item.family}</p>
+            ${renderPathDiagrams(item.path)}
             <div class="actions">
               <button type="button" class="btn btn-ghost" data-open-slot="${slot.id}">Открыть ход</button>
               <button type="button" class="btn btn-ghost" data-clear-slot="${slot.id}">Убрать</button>
@@ -358,9 +359,13 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 document.querySelectorAll("[data-instrument]").forEach((btn) => {
   btn.addEventListener("click", () => {
-    // audio.js handles sound; refresh path diagrams for guitar/piano
+    // audio.js handles sound; refresh fingerings for guitar/piano
     setTimeout(() => {
       if (state.screen === "path") renderPath();
+      else if (state.screen === "song") {
+        if (typeof refreshAllPathDiagrams === "function") refreshAllPathDiagrams();
+        else renderSong();
+      }
     }, 0);
   });
 });

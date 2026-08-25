@@ -899,3 +899,311 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ----- night map (mockup: topo + amber glow) ----- */
+
+body.is-map-night {
+  color: #f3e6d4;
+  background: #0b0a09;
+}
+
+body.is-map-night .paper {
+  background:
+    linear-gradient(180deg, rgba(8, 7, 6, 0.55), rgba(8, 7, 6, 0.72)),
+    url("icons/map_topo_night.jpg") center top / cover no-repeat;
+}
+
+body.is-map-night .paper::before,
+body.is-map-night .paper::after {
+  opacity: 0.03;
+}
+
+body.is-map-night .topbar {
+  background: rgba(10, 9, 8, 0.72);
+  border-bottom-color: rgba(240, 163, 90, 0.18);
+}
+
+body.is-map-night .brand,
+body.is-map-night .brand-tag {
+  color: #f3e6d4;
+}
+
+body.is-map-night .brand-tag { opacity: 0.65; }
+
+body.is-map-night .icon-btn {
+  border-color: rgba(240, 163, 90, 0.35);
+  color: #f3e6d4;
+  background: rgba(20, 16, 12, 0.6);
+}
+
+body.is-map-night .instrument-btn {
+  border-color: rgba(240, 163, 90, 0.3);
+  background: rgba(18, 14, 10, 0.85);
+}
+
+body.is-map-night .instrument-btn.is-active {
+  border-color: #f0a35a;
+  box-shadow: 0 0 0 3px rgba(240, 163, 90, 0.25), 0 0 18px rgba(240, 163, 90, 0.35);
+}
+
+body.is-map-night .tabbar {
+  background: rgba(10, 9, 8, 0.92);
+  border-top-color: rgba(240, 163, 90, 0.18);
+}
+
+body.is-map-night .tab { color: rgba(243, 230, 212, 0.55); }
+
+body.is-map-night .tab.is-active {
+  color: #f0a35a;
+}
+
+body.is-map-night .tab.is-active .tab-ico {
+  color: #f0a35a;
+  filter: drop-shadow(0 0 6px rgba(240, 163, 90, 0.65));
+}
+
+.map-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.map-hero-copy { flex: 1; min-width: 0; }
+
+.map-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.85rem, 7vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f7ebdc;
+}
+
+.map-lead {
+  margin: 0.35rem 0 0;
+  color: rgba(243, 230, 212, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  max-width: 28ch;
+}
+
+.map-lead.soft { color: rgba(243, 230, 212, 0.58); }
+
+.mood-pill {
+  appearance: none;
+  flex: 0 0 auto;
+  border: 1px solid rgba(240, 163, 90, 0.45);
+  background: rgba(20, 14, 10, 0.75);
+  color: #f0a35a;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(240, 163, 90, 0.15);
+}
+
+.nmap-board {
+  position: relative;
+  margin: 0.4rem -0.2rem 0.85rem;
+}
+
+.nmap-svg {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.nmap-hub {
+  fill: #1c110a;
+  stroke: #f0a35a;
+  stroke-width: 2.5;
+}
+
+.nmap-hub-name {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  fill: #fff4e4;
+  pointer-events: none;
+}
+
+.nmap-hub-sub {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: rgba(240, 163, 90, 0.9);
+  pointer-events: none;
+}
+
+.nmap-ray { cursor: pointer; }
+
+.nmap-line {
+  stroke: #f0a35a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.55;
+  filter: drop-shadow(0 0 4px rgba(240, 163, 90, 0.55));
+}
+
+.nmap-edge {
+  font-family: var(--font-body);
+  font-size: 9px;
+  fill: rgba(247, 235, 220, 0.78);
+  pointer-events: none;
+}
+
+.nmap-node-glow {
+  fill: rgba(240, 163, 90, 0.18);
+}
+
+.nmap-node {
+  fill: #14100c;
+  stroke: #e08a45;
+  stroke-width: 1.6;
+}
+
+.nmap-chord {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  fill: #f7ebdc;
+  pointer-events: none;
+}
+
+.nmap-deg {
+  font-family: var(--font-body);
+  font-size: 10px;
+  fill: rgba(240, 163, 90, 0.85);
+  pointer-events: none;
+}
+
+.nmap-ray:hover .nmap-line,
+.nmap-ray.is-active .nmap-line {
+  opacity: 1;
+  stroke-width: 2.6;
+}
+
+.nmap-ray:hover .nmap-node,
+.nmap-ray.is-active .nmap-node {
+  stroke: #ffc078;
+  stroke-width: 2.2;
+  fill: #22160f;
+}
+
+.nmap-ray.is-active .nmap-node-glow {
+  fill: rgba(240, 163, 90, 0.34);
+}
+
+.map-info-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(16, 12, 10, 0.72);
+  border: 1px solid rgba(240, 163, 90, 0.22);
+  backdrop-filter: blur(10px);
+  margin-bottom: 0.85rem;
+}
+
+.map-info-mark {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(240, 163, 90, 0.12);
+  border: 1px solid rgba(240, 163, 90, 0.35);
+  color: #f0a35a;
+}
+
+.map-info-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f7ebdc;
+}
+
+.map-info-text {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: rgba(243, 230, 212, 0.68);
+}
+
+.map-info-more {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #f0a35a;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0.2rem;
+}
+
+.btn-glow {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.95rem 1.2rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a100a;
+  background: linear-gradient(135deg, #ffc078 0%, #f0a35a 45%, #d97835 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 200, 130, 0.35),
+    0 0 28px rgba(240, 163, 90, 0.45);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.btn-block { width: 100%; }
+
+.map-focus-route {
+  margin: 0.7rem 0 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: rgba(247, 235, 220, 0.9);
+}
+
+.map-focus-route.soft {
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  color: rgba(243, 230, 212, 0.5);
+}
+
+.map-gate.night {
+  border: 1px solid rgba(240, 163, 90, 0.22);
+  background: rgba(14, 11, 9, 0.7);
+  border-radius: 20px;
+  padding: 0.85rem 1rem 1.1rem;
+  backdrop-filter: blur(8px);
+}
+
+body.is-map-night .dark-chords .chord-pick {
+  background: rgba(20, 14, 10, 0.85);
+  border-color: rgba(240, 163, 90, 0.35);
+  color: #f7ebdc;
+  box-shadow: none;
+}
+
+body.is-map-night .dark-chords .chord-pick:hover {
+  border-color: #f0a35a;
+  color: #f0a35a;
+  box-shadow: 0 0 14px rgba(240, 163, 90, 0.25);
+}

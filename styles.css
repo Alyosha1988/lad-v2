@@ -86,7 +86,8 @@ body {
 }
 
 body.is-mood-home .topbar {
-  grid-template-columns: 1fr auto;
+  display: flex;
+  justify-content: flex-end;
   border-bottom-color: transparent;
 }
 

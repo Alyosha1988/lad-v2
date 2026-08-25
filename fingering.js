@@ -368,16 +368,16 @@ function renderChordSvg(symbol, voicing, opts = {}) {
 
   let marks = "";
   if (base === 1) {
-    marks += `<rect x="${padL - 1}" y="${padT - 3}" width="${gridW + 2}" height="3.5" fill="#b45a3c"/>`;
+    marks += `<rect x="${padL - 1}" y="${padT - 3}" width="${gridW + 2}" height="3.5" fill="#f0a35a"/>`;
   } else {
-    marks += `<text x="${padL - 5}" y="${padT + gridH / 8 + 3}" fill="#7a7166" font-size="9" font-family="Manrope,sans-serif" text-anchor="end">${base}fr</text>`;
+    marks += `<text x="${padL - 5}" y="${padT + gridH / 8 + 3}" fill="#c9b59a" font-size="9" font-family="Source Sans 3,sans-serif" text-anchor="end">${base}fr</text>`;
   }
 
   for (const x of stringXs) {
-    marks += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + gridH}" stroke="#7a7166" stroke-width="1" opacity="0.7"/>`;
+    marks += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + gridH}" stroke="#f0a35a" stroke-width="1" opacity="0.45"/>`;
   }
   for (const y of fretYs) {
-    marks += `<line x1="${padL}" y1="${y}" x2="${padL + gridW}" y2="${y}" stroke="#7a7166" stroke-width="1" opacity="0.55"/>`;
+    marks += `<line x1="${padL}" y1="${y}" x2="${padL + gridW}" y2="${y}" stroke="#f0a35a" stroke-width="1" opacity="0.35"/>`;
   }
 
   const rel = frets.map((f) => (f <= 0 ? f : f - base + 1));
@@ -405,22 +405,22 @@ function renderChordSvg(symbol, voicing, opts = {}) {
 
   if (barreFret !== null) {
     const y = padT + ((barreFret - 0.5) * gridH) / 4;
-    marks += `<rect x="${stringXs[barreFrom] - 5}" y="${y - 5}" width="${stringXs[barreTo] - stringXs[barreFrom] + 10}" height="10" rx="5" fill="#b45a3c"/>`;
+    marks += `<rect x="${stringXs[barreFrom] - 5}" y="${y - 5}" width="${stringXs[barreTo] - stringXs[barreFrom] + 10}" height="10" rx="5" fill="#f0a35a"/>`;
   }
 
   for (let s = 0; s < 6; s++) {
     const f = frets[s];
     const x = stringXs[s];
     if (f === FRET_MUTE) {
-      marks += `<text x="${x}" y="${padT - 10}" fill="#7a7166" font-size="11" text-anchor="middle" font-family="Manrope,sans-serif">×</text>`;
+      marks += `<text x="${x}" y="${padT - 10}" fill="#c9b59a" font-size="11" text-anchor="middle" font-family="Source Sans 3,sans-serif">×</text>`;
     } else if (f === FRET_OPEN) {
-      marks += `<circle cx="${x}" cy="${padT - 12}" r="3.8" fill="none" stroke="#b45a3c" stroke-width="1.3"/>`;
+      marks += `<circle cx="${x}" cy="${padT - 12}" r="3.8" fill="none" stroke="#f0a35a" stroke-width="1.4"/>`;
     } else {
       const relF = f - base + 1;
       if (relF < 1 || relF > showFrets) continue;
       if (barreFret === relF && s > barreFrom && s < barreTo) continue;
       const y = padT + ((relF - 0.5) * gridH) / 4;
-      marks += `<circle cx="${x}" cy="${y}" r="5.2" fill="#1c1917"/>`;
+      marks += `<circle cx="${x}" cy="${y}" r="5.2" fill="#f0a35a" stroke="#ffc078" stroke-width="1"/>`;
     }
   }
 
@@ -430,7 +430,7 @@ function renderChordSvg(symbol, voicing, opts = {}) {
     <figure class="chord-diag">
       ${step}
       <svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="Аппликатура ${symbol}">
-        <text x="${w / 2}" y="14" text-anchor="middle" fill="#1c1917" font-size="12" font-weight="600" font-family="Literata,Georgia,serif">${symbol}</text>
+        <text x="${w / 2}" y="14" text-anchor="middle" fill="#f3e6d4" font-size="12" font-weight="600" font-family="Cormorant Garamond,Georgia,serif">${symbol}</text>
         ${marks}
       </svg>
       <button type="button" class="chord-play-btn" data-play-frets="${frets.join(",")}" aria-label="Послушать ${symbol}">▶</button>
@@ -604,9 +604,9 @@ function renderPianoSvg(item, opts = {}) {
   whites.forEach((m, i) => {
     const x = padL + i * whiteW;
     const on = active.has(m);
-    svg += `<rect x="${x}" y="${padT}" width="${whiteW - 1.2}" height="${whiteH}" rx="1.5" fill="${on ? "#b45a3c" : "#fff8ee"}" stroke="#3d2e22" stroke-width="1"/>`;
+    svg += `<rect x="${x}" y="${padT}" width="${whiteW - 1.2}" height="${whiteH}" rx="1.5" fill="${on ? "#f0a35a" : "#fff8ee"}" stroke="#3d2e22" stroke-width="1"/>`;
     if (on && fingerOf[m]) {
-      svg += `<text x="${x + (whiteW - 1.2) / 2}" y="${padT + whiteH - 8}" text-anchor="middle" fill="#fff8ee" font-size="10" font-weight="700" font-family="Manrope,sans-serif">${fingerOf[m]}</text>`;
+      svg += `<text x="${x + (whiteW - 1.2) / 2}" y="${padT + whiteH - 8}" text-anchor="middle" fill="#1a120c" font-size="10" font-weight="700" font-family="Source Sans 3,sans-serif">${fingerOf[m]}</text>`;
     }
   });
 
@@ -616,9 +616,9 @@ function renderPianoSvg(item, opts = {}) {
     if (nextBlack <= end && isBlack(nextBlack)) {
       const x = padL + i * whiteW + whiteW - blackW / 2 - 0.6;
       const on = active.has(nextBlack);
-      svg += `<rect x="${x}" y="${padT}" width="${blackW}" height="${blackH}" rx="1" fill="${on ? "#b45a3c" : "#1c1917"}" stroke="#0d0a08" stroke-width="0.5"/>`;
+      svg += `<rect x="${x}" y="${padT}" width="${blackW}" height="${blackH}" rx="1" fill="${on ? "#f0a35a" : "#1c1917"}" stroke="#0d0a08" stroke-width="0.5"/>`;
       if (on && fingerOf[nextBlack]) {
-        svg += `<text x="${x + blackW / 2}" y="${padT + blackH - 6}" text-anchor="middle" fill="#fff8ee" font-size="9" font-weight="700" font-family="Manrope,sans-serif">${fingerOf[nextBlack]}</text>`;
+        svg += `<text x="${x + blackW / 2}" y="${padT + blackH - 6}" text-anchor="middle" fill="#1a120c" font-size="9" font-weight="700" font-family="Source Sans 3,sans-serif">${fingerOf[nextBlack]}</text>`;
       }
     }
   });
@@ -631,7 +631,7 @@ function renderPianoSvg(item, opts = {}) {
     <figure class="chord-diag chord-diag-piano">
       ${step}
       <svg viewBox="0 0 ${w} ${h}" width="${Math.min(w, 200)}" height="${h}" role="img" aria-label="Рояль ${item.symbol}">
-        <text x="${w / 2}" y="14" text-anchor="middle" fill="#1c1917" font-size="12" font-weight="600" font-family="Literata,Georgia,serif">${item.symbol}</text>
+        <text x="${w / 2}" y="14" text-anchor="middle" fill="#f3e6d4" font-size="12" font-weight="600" font-family="Cormorant Garamond,Georgia,serif">${item.symbol}</text>
         ${svg}
       </svg>
       <button type="button" class="chord-play-btn" data-play-notes="${playNotes}" aria-label="Послушать ${item.symbol}">▶</button>

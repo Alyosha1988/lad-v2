@@ -124,7 +124,7 @@ function renderMood() {
         <p class="hand">Исследуй связи между аккордами. Собирай гармоничные пути.</p>
       </div>
       <figure class="hero-art">
-        <img src="icons/map_topo_night.jpg" alt="" />
+        <img src="icons/hero_night_landscape.jpg" alt="Ночной пейзаж" />
       </figure>
     </section>
 

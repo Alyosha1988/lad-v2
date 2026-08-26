@@ -3,11 +3,18 @@
  * acoustic → nylon (FluidR3)
  * distortion → distortion guitar (FatBoy) + лёгкий «кабинет»
  * piano → grand piano (FluidR3)
+ *
+ * Оптимизации: очередь с приоритетом, лимит параллелизма,
+ * быстрый старт play (таймаут → synth), прогрев всех тембров,
+ * без глобального debounce между сменой инструмента и play.
  */
 
 const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
 const INSTRUMENTS = ["acoustic", "distortion", "piano"];
 const INSTRUMENT_KEY = "lad-instrument";
+const MAX_CONCURRENT_LOADS = 8;
+const PLAY_WAIT_MS = 100;
+const PREVIEW_WAIT_MS = 160;
 
 const SOUNDFONT_HOST =
   "https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@gh-pages";
@@ -21,12 +28,25 @@ const INSTRUMENT_FONT = {
 
 const NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
+/** Часто встречающиеся MIDI для открытых/баррэ форм */
+const COMMON_MIDIS = [
+  40, 42, 43, 45, 47, 48, 50, 52, 53, 55, 56, 57, 59, 60, 62, 64, 65, 66, 67, 69, 71, 72,
+];
+
 let audioCtx = null;
 let audioUnlocked = false;
 let masterBus = null;
 let distortionBus = null;
 const bufferCache = new Map();
 const inflight = new Map();
+
+/** @type {{ key: string, instrument: string, midi: number, priority: number, resolve: Function, controller?: AbortController }[]} */
+const loadQueue = [];
+/** @type {Map<string, { priority: number, controller: AbortController | null }>} */
+const activeJobs = new Map();
+let activeLoads = 0;
+let playGeneration = 0;
+let warmTimer = null;
 
 let currentInstrument =
   (typeof localStorage !== "undefined" && localStorage.getItem(INSTRUMENT_KEY)) || "acoustic";
@@ -48,12 +68,19 @@ function getInstrument() {
 
 function setInstrument(id) {
   if (!INSTRUMENTS.includes(id)) return currentInstrument;
+  const prev = currentInstrument;
   currentInstrument = id;
   try {
     localStorage.setItem(INSTRUMENT_KEY, id);
   } catch (_) {}
   syncInstrumentUI();
-  prefetchCommon(id);
+  if (prev !== id) {
+    // приоритет новому тембру: сначала preview-аккорд, потом общий набор
+    prioritizeInstrument(id);
+    prefetchMidis(id, fretsToNotes([-1, 0, 2, 2, 1, 0]).map((n) => n.midi), 90);
+    prefetchCommon(id, 40);
+    scheduleWarmOthers(id);
+  }
   if (typeof window !== "undefined" && typeof window.refreshAllPathDiagrams === "function") {
     window.refreshAllPathDiagrams();
   }
@@ -174,6 +201,9 @@ function unlockAudio() {
       source.connect(getMasterBus(ctx));
       source.start(0);
       audioUnlocked = true;
+      // после первого жеста — прогреть текущий и остальные тембры в фоне
+      prefetchCommon(currentInstrument, 50);
+      scheduleWarmOthers(currentInstrument);
     } catch (_) {}
   }
   return ctx;
@@ -205,38 +235,207 @@ function sampleUrl(instrument, midi) {
   return `${SOUNDFONT_HOST}/${conf.bank}/${conf.folder}/${midiToNoteName(midi)}.mp3`;
 }
 
-function loadSample(instrument, midi) {
-  const key = `${instrument}:v2:${midi}`;
-  if (bufferCache.has(key)) return Promise.resolve(bufferCache.get(key));
-  if (inflight.has(key)) return inflight.get(key);
+function cacheKey(instrument, midi) {
+  return `${instrument}:v3:${midi}`;
+}
 
+function bumpQueuePriority(key, priority) {
+  const item = loadQueue.find((q) => q.key === key);
+  if (item && priority > item.priority) item.priority = priority;
+  const active = activeJobs.get(key);
+  if (active && priority > active.priority) active.priority = priority;
+  loadQueue.sort((a, b) => b.priority - a.priority);
+  if (priority >= 80) preemptLowPriorityLoads();
+}
+
+function preemptLowPriorityLoads() {
+  // освобождаем слоты: рвём активные низкоприоритетные fetch
+  for (const [key, meta] of activeJobs) {
+    if (meta.priority >= 80) continue;
+    if (meta.controller) {
+      try {
+        meta.controller.abort();
+      } catch (_) {}
+    }
+  }
+}
+
+function pumpLoadQueue() {
+  loadQueue.sort((a, b) => b.priority - a.priority);
+
+  while (loadQueue.length) {
+    const next = loadQueue[0];
+    const highWaiting = next.priority >= 80;
+    const highActive = [...activeJobs.values()].filter((j) => j.priority >= 80).length;
+    const reservedForHigh = highWaiting ? 0 : 2; // держим 2 слота под play, если в очереди нет high
+    const limit = highWaiting ? MAX_CONCURRENT_LOADS : Math.max(2, MAX_CONCURRENT_LOADS - reservedForHigh);
+
+    if (activeLoads >= (highWaiting ? MAX_CONCURRENT_LOADS : limit)) {
+      if (highWaiting && activeLoads >= MAX_CONCURRENT_LOADS) preemptLowPriorityLoads();
+      break;
+    }
+
+    const job = loadQueue.shift();
+    if (!job) break;
+    if (bufferCache.has(job.key)) {
+      job.resolve(bufferCache.get(job.key));
+      inflight.delete(job.key);
+      continue;
+    }
+    activeLoads += 1;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    activeJobs.set(job.key, { priority: job.priority, controller });
+    job.controller = controller;
+    runFetchDecode(job).finally(() => {
+      activeLoads -= 1;
+      activeJobs.delete(job.key);
+      inflight.delete(job.key);
+      pumpLoadQueue();
+    });
+  }
+}
+
+function runFetchDecode(job) {
   const ctx = getAudioContext();
-  if (!ctx) return Promise.resolve(null);
+  if (!ctx) {
+    job.resolve(null);
+    return Promise.resolve(null);
+  }
 
-  const promise = fetch(sampleUrl(instrument, midi), { mode: "cors" })
+  const ctrl = job.controller;
+  const timer =
+    ctrl &&
+    setTimeout(() => {
+      try {
+        ctrl.abort();
+      } catch (_) {}
+    }, 8000);
+
+  return fetch(sampleUrl(job.instrument, job.midi), {
+    mode: "cors",
+    credentials: "omit",
+    cache: "force-cache",
+    signal: ctrl?.signal,
+  })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.arrayBuffer();
     })
     .then((arr) => ctx.decodeAudioData(arr.slice(0)))
     .then((buf) => {
-      bufferCache.set(key, buf);
+      bufferCache.set(job.key, buf);
+      job.resolve(buf);
       return buf;
     })
     .catch((err) => {
-      console.warn("sample load fail", instrument, midiToNoteName(midi), err);
-      bufferCache.set(key, null);
+      if (err?.name === "AbortError") {
+        job.resolve(null);
+        // вернём в конец очереди фоном — play уже не ждёт
+        queueMicrotask(() => {
+          if (!bufferCache.has(job.key)) {
+            loadSample(job.instrument, job.midi, Math.min(25, job.priority));
+          }
+        });
+        return null;
+      }
+      console.warn("sample load fail", job.instrument, midiToNoteName(job.midi), err);
+      bufferCache.set(job.key, null);
+      job.resolve(null);
       return null;
     })
-    .finally(() => inflight.delete(key));
+    .finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+}
 
+/**
+ * @param {string} instrument
+ * @param {number} midi
+ * @param {number} [priority=20]
+ */
+function loadSample(instrument, midi, priority = 20) {
+  const key = cacheKey(instrument, midi);
+  if (bufferCache.has(key)) return Promise.resolve(bufferCache.get(key));
+  if (inflight.has(key)) {
+    bumpQueuePriority(key, priority);
+    return inflight.get(key);
+  }
+
+  let resolve;
+  const promise = new Promise((res) => {
+    resolve = res;
+  });
   inflight.set(key, promise);
+  loadQueue.push({
+    key,
+    instrument,
+    midi,
+    priority,
+    resolve,
+  });
+  if (priority >= 80) preemptLowPriorityLoads();
+  pumpLoadQueue();
   return promise;
 }
 
-function prefetchCommon(instrument = currentInstrument) {
-  const midis = [40, 43, 45, 47, 48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72];
-  midis.forEach((m) => loadSample(instrument, m));
+function prefetchMidis(instrument, midis, priority = 30) {
+  (midis || []).forEach((m, i) => loadSample(instrument, m, priority - i * 0.01));
+}
+
+function prefetchCommon(instrument = currentInstrument, priority = 30) {
+  prefetchMidis(instrument, COMMON_MIDIS, priority);
+}
+
+function prioritizeInstrument(instrument) {
+  // слегка поднять уже стоящие в очереди задачи этого тембра
+  loadQueue.forEach((q) => {
+    if (q.instrument === instrument && q.priority < 45) q.priority += 25;
+  });
+}
+
+function scheduleWarmOthers(primary) {
+  if (warmTimer) clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    const rest = INSTRUMENTS.filter((id) => id !== primary);
+    rest.forEach((id, idx) => prefetchCommon(id, 12 - idx));
+  }, 280);
+}
+
+function settleWithTimeout(promises, ms) {
+  return new Promise((resolve) => {
+    const out = new Array(promises.length).fill(undefined);
+    let remaining = promises.length;
+    let done = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(out.map((v) => (v === undefined ? null : v)));
+    };
+
+    if (!promises.length) {
+      finish();
+      return;
+    }
+
+    const timer = setTimeout(finish, ms);
+    promises.forEach((p, i) => {
+      Promise.resolve(p)
+        .then((v) => {
+          out[i] = v;
+        })
+        .catch(() => {
+          out[i] = null;
+        })
+        .finally(() => {
+          remaining -= 1;
+          if (remaining <= 0) {
+            clearTimeout(timer);
+            finish();
+          }
+        });
+    });
+  });
 }
 
 function playBuffer(ctx, buffer, when, gainPeak, dest, durationCap, opts = {}) {
@@ -302,18 +501,22 @@ function playVoicing(frets, opts = {}) {
   const baseGain = opts.gain ?? style.gain;
   const duration = opts.duration ?? style.duration;
   const dest = destinationFor(instrument, ctx);
+  const waitMs = opts.waitMs ?? PLAY_WAIT_MS;
+  const gen = ++playGeneration;
 
-  const jobs = notes.map((n) => loadSample(instrument, n.midi));
+  // высокий приоритет — ноты текущего play обгоняют фоновый прогрев
+  const jobs = notes.map((n, i) => loadSample(instrument, n.midi, 100 - i));
 
-  Promise.all(jobs).then((buffers) => {
+  settleWithTimeout(jobs, waitMs).then((buffers) => {
+    if (gen !== playGeneration && !opts.allowStale) return;
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    const start = ctx.currentTime + 0.04;
+    const start = ctx.currentTime + 0.02;
     notes.forEach((n, i) => {
       const when = start + i * strum;
       const g = baseGain * (instrument === "piano" ? 1 : n.string <= 2 ? 1.1 : 0.86);
       const buf = buffers[i];
       if (buf) playBuffer(ctx, buf, when, g, dest, duration, style);
-      else synthFallback(ctx, n.freq, when, duration * 0.8, g * 0.5, dest, instrument);
+      else synthFallback(ctx, n.freq, when, duration * 0.8, g * 0.45, dest, instrument);
     });
   });
 
@@ -330,7 +533,7 @@ function playChord(symbol) {
 function flashPlaying(el) {
   if (!el) return;
   el.classList.add("is-playing");
-  setTimeout(() => el.classList.remove("is-playing"), 500);
+  setTimeout(() => el.classList.remove("is-playing"), 420);
 }
 
 function handlePlayEvent(e) {
@@ -360,16 +563,18 @@ function playMidiNotes(midis) {
   const instrument = currentInstrument;
   const style = instrumentPlayStyle(instrument);
   const dest = destinationFor(instrument, ctx);
-  const jobs = midis.map((m) => loadSample(instrument, m));
-  Promise.all(jobs).then((buffers) => {
+  const gen = ++playGeneration;
+  const jobs = midis.map((m, i) => loadSample(instrument, m, 100 - i));
+  settleWithTimeout(jobs, PLAY_WAIT_MS).then((buffers) => {
+    if (gen !== playGeneration) return;
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    const start = ctx.currentTime + 0.03;
+    const start = ctx.currentTime + 0.02;
     midis.forEach((m, i) => {
       const when = start + i * (instrument === "piano" ? 0.012 : 0.03);
       const buf = buffers[i];
       const g = style.gain * 0.95;
       if (buf) playBuffer(ctx, buf, when, g, dest, style.duration, style);
-      else synthFallback(ctx, midiToFreq(m), when, style.duration * 0.8, g * 0.5, dest, instrument);
+      else synthFallback(ctx, midiToFreq(m), when, style.duration * 0.8, g * 0.45, dest, instrument);
     });
   });
   return true;
@@ -380,11 +585,13 @@ function handleInstrumentEvent(e) {
   if (!btn) return false;
   e.preventDefault();
   e.stopPropagation();
-  setInstrument(btn.dataset.instrument);
+  const id = btn.dataset.instrument;
+  setInstrument(id);
   unlockAudio();
   flashPlaying(btn);
   try {
-    playVoicing([-1, 0, 2, 2, 1, 0]);
+    // preview с чуть большим бюджетом ожидания сэмплов нового тембра
+    playVoicing([-1, 0, 2, 2, 1, 0], { waitMs: PREVIEW_WAIT_MS, allowStale: true });
   } catch (err) {
     console.warn("Лад instrument preview error:", err);
   }
@@ -395,22 +602,45 @@ function bindAudioEvents(root = document) {
   if (root.__ladAudioBound) return;
   root.__ladAudioBound = true;
 
-  let lastTs = 0;
+  // Только pointerup: иначе click дублирует жест и глобальный debounce
+  // глотал play сразу после смены инструмента.
+  const lastByEl = new WeakMap();
   const onPointer = (e) => {
+    if (e.type === "pointerup" && e.pointerType === "mouse" && e.button !== 0) return;
+    const el =
+      e.target.closest?.("[data-instrument], [data-play-frets], [data-play-chord], [data-play-notes]") ||
+      null;
+    if (!el) return;
     const now = Date.now();
-    if (now - lastTs < 350) return;
-    if (handleInstrumentEvent(e) || handlePlayEvent(e)) lastTs = now;
+    const prev = lastByEl.get(el) || 0;
+    if (now - prev < 220) return;
+    if (handleInstrumentEvent(e) || handlePlayEvent(e)) lastByEl.set(el, now);
   };
 
   root.addEventListener("pointerup", onPointer, true);
-  root.addEventListener("click", onPointer, true);
+  // клавиатура / старые клиенты без Pointer Events
+  root.addEventListener(
+    "click",
+    (e) => {
+      if (window.PointerEvent) return;
+      onPointer(e);
+    },
+    true
+  );
   syncInstrumentUI(root);
 }
 
 function initAudioUI() {
   bindAudioEvents(document);
-  // После первого жеста сэмплы подтянутся; заранее прогреем список URL в кэш браузера по возможности
-  prefetchCommon(currentInstrument);
+  // лёгкий DNS/TLS прогрев без декода — пока нет жеста
+  try {
+    if (typeof fetch === "function") {
+      const warm = sampleUrl(currentInstrument, 60);
+      fetch(warm, { method: "GET", mode: "cors", credentials: "omit", cache: "force-cache" }).catch(
+        () => {}
+      );
+    }
+  } catch (_) {}
 }
 
 if (typeof document !== "undefined") {
@@ -421,18 +651,30 @@ if (typeof document !== "undefined") {
   }
 }
 
+const LadAudioAPI = {
+  playVoicing,
+  playChord,
+  fretsToNotes,
+  parseFrets,
+  midiToFreq,
+  midiToNoteName,
+  setInstrument,
+  getInstrument,
+  unlockAudio,
+  loadSample,
+  prefetchCommon,
+  INSTRUMENTS,
+  stats: () => ({
+    cache: bufferCache.size,
+    inflight: inflight.size,
+    queue: loadQueue.length,
+    active: activeLoads,
+    instrument: currentInstrument,
+  }),
+};
+
+if (typeof window !== "undefined") window.LadAudio = LadAudioAPI;
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    playVoicing,
-    playChord,
-    fretsToNotes,
-    parseFrets,
-    midiToFreq,
-    midiToNoteName,
-    setInstrument,
-    getInstrument,
-    unlockAudio,
-    loadSample,
-    INSTRUMENTS,
-  };
+  module.exports = LadAudioAPI;
 }

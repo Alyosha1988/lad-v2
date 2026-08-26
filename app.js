@@ -144,9 +144,20 @@ function bindTheoryHooks(root) {
     btn.addEventListener("click", () => openDegrees(state.screen));
   });
   root.querySelectorAll("[data-set-voice]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof LadTheory === "undefined") return;
       LadTheory.setVoice(btn.dataset.setVoice);
+      // остаёмся на ступенях / словаре / текущем экране
+      if (state.screen === "degrees") {
+        renderDegrees();
+        return;
+      }
+      if (state.screen === "glossary") {
+        renderGlossary();
+        return;
+      }
       render();
     });
   });

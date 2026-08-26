@@ -1113,7 +1113,9 @@
 
   function bindDegreesScreen(root, hooks = {}) {
     root.querySelectorAll("[data-set-voice]").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         setVoice(btn.dataset.setVoice);
         hooks.onChange?.();
       });

@@ -41,7 +41,7 @@ const SONG_SLOTS = [
 ];
 
 const state = {
-  screen: "mood", // mood | start | discover | map | path | song
+  screen: "mood", // mood | start | discover | map | path | song | plus
   mood: null,
   start: null,
   paths: [],
@@ -58,6 +58,8 @@ const state = {
     piano: [], // midi numbers
     baseFret: 1,
   },
+  returnFromPlus: "mood",
+  pdfPreview: false,
 };
 
 const stage = document.getElementById("stage");
@@ -77,7 +79,7 @@ function setScreen(name) {
   document.querySelectorAll(".tab").forEach((tab) => {
     const nav = tab.dataset.nav;
     const active =
-      (nav === "mood" && (name === "mood" || name === "start" || name === "discover")) ||
+      (nav === "mood" && (name === "mood" || name === "start" || name === "discover" || name === "plus")) ||
       (nav === "map" && (name === "map" || name === "path")) ||
       (nav === "song" && name === "song");
     tab.classList.toggle("is-active", active);
@@ -87,13 +89,29 @@ function setScreen(name) {
   render();
 }
 
+function openLadPlus(fromScreen) {
+  state.returnFromPlus = fromScreen || state.screen;
+  setScreen("plus");
+}
+
 function goBack() {
-  if (state.screen === "start") setScreen("mood");
+  if (state.screen === "plus") setScreen(state.returnFromPlus || "mood");
+  else if (state.screen === "start") setScreen("mood");
   else if (state.screen === "discover") setScreen("start");
   else if (state.screen === "map") setScreen(state.start ? "start" : "mood");
   else if (state.screen === "path") setScreen("map");
   else if (state.screen === "song") setScreen(state.activePath ? "path" : "map");
   else setScreen("mood");
+}
+
+function hasPlus() {
+  return typeof LadTheory !== "undefined" && LadTheory.hasLadPlus();
+}
+
+function bindTheoryHooks(root) {
+  root.querySelectorAll("[data-open-lad-plus]").forEach((btn) => {
+    btn.addEventListener("click", () => openLadPlus(state.screen));
+  });
 }
 
 function loadPaths() {
@@ -120,6 +138,20 @@ function render() {
   else if (state.screen === "map") renderMap();
   else if (state.screen === "path") renderPath();
   else if (state.screen === "song") renderSong();
+  else if (state.screen === "plus") renderLadPlus();
+}
+
+function renderLadPlus() {
+  stage.innerHTML =
+    typeof LadTheory !== "undefined"
+      ? LadTheory.renderLadPlusScreen({ variant: "night" })
+      : `<p class="hand-note">Модуль теории не загружен.</p>`;
+  if (typeof LadTheory !== "undefined") {
+    LadTheory.bindLadPlusScreen(stage, {
+      onChange: () => renderLadPlus(),
+      onBack: () => setScreen(state.returnFromPlus || "mood"),
+    });
+  }
 }
 
 function renderMood() {
@@ -135,8 +167,8 @@ function renderMood() {
       </figure>
     </section>
 
-    <p class="section-title">Моя <span>Mood-Room</span></p>
-    <p class="section-hand">выбери оттенок — он окрасит карту и дорожку</p>
+    <p class="section-title">Комната <span>оттенков</span></p>
+    <p class="section-hand">выберите оттенок — он задаст ладовую опору карты и дорожки</p>
 
     <div class="mood-orbit">
       ${V2_MOODS.map(
@@ -145,15 +177,20 @@ function renderMood() {
           <span class="ring"><img src="icons/moods/${m.id}.jpg" alt="" /></span>
           <span class="title">${m.title}</span>
           <span class="desc">${m.desc}</span>
+          ${typeof LadTheory !== "undefined" ? LadTheory.renderMoodModeLine(m.id) : ""}
         </button>`
       ).join("")}
+    </div>
+
+    <div class="actions" style="margin-top:1rem">
+      <button type="button" class="btn btn-ghost" id="openPlusHome">Лад+</button>
     </div>
 
     <button type="button" class="ink-banner" id="toSongBanner">
       <span class="mark">✦</span>
       <span>
-        <span class="title">Твой Лад</span>
-        <span class="sub">ходы, плейлисты и заметки</span>
+        <span class="title">Дорожка</span>
+        <span class="sub">форма песни и выгрузка листа</span>
       </span>
       <span class="chev">›</span>
     </button>
@@ -168,21 +205,28 @@ function renderMood() {
     });
   });
   document.getElementById("toSongBanner").addEventListener("click", () => setScreen("song"));
+  document.getElementById("openPlusHome")?.addEventListener("click", () => openLadPlus("mood"));
 }
 
 function renderStart() {
   const mood = moodById(state.mood);
+  const modeLine =
+    typeof LadTheory !== "undefined" && state.mood
+      ? LadTheory.moodModeInfo(state.mood).modeLine
+      : "";
   stage.innerHTML = `
-    <p class="kicker">Точка входа</p>
+    <p class="kicker">Тональный центр</p>
     <h1 class="h1">${mood?.title || ""}</h1>
-    <p class="hand-note">выбери тонику — она станет сердцем карты</p>
+    ${modeLine ? `<p class="mood-mode-line">${modeLine}</p>` : ""}
+    <p class="hand-note">Выберите тонику — она станет тональным центром карты.</p>
     <div class="chip-row">
       <button type="button" class="chip chip-btn" id="changeMood">${mood?.title || ""} ▾</button>
+      <button type="button" class="chip chip-btn" id="openPlusStart">Лад+</button>
     </div>
     <button type="button" class="btn btn-glow btn-block" id="toDiscover">
       Не знаю аккорд — показать на грифе / клавишах
     </button>
-    <p class="section-hand" style="margin-top:1rem">или выбери из списка</p>
+    <p class="section-hand" style="margin-top:1rem">или выберите из списка</p>
     <div class="chord-grid">
       ${START_CHORDS.map(
         (c) => `<button type="button" class="chord-pick" data-chord="${c}">${c}</button>`
@@ -190,6 +234,7 @@ function renderStart() {
     </div>
   `;
   document.getElementById("changeMood")?.addEventListener("click", () => setScreen("mood"));
+  document.getElementById("openPlusStart")?.addEventListener("click", () => openLadPlus("start"));
   document.getElementById("toDiscover")?.addEventListener("click", () => {
     state.discover = {
       frets: typeof emptyGuitarFrets === "function" ? emptyGuitarFrets() : [-1, -1, -1, -1, -1, -1],
@@ -608,12 +653,24 @@ function renderMap() {
   const nodes = buildMapNodes(paths);
   const flavor = MOOD_FLAVOR[state.mood] || MOOD_FLAVOR.dark;
   const focus = state.mapFocus != null ? paths[state.mapFocus] : null;
+  const modeLine =
+    typeof LadTheory !== "undefined" ? LadTheory.moodModeInfo(state.mood).modeLine : "";
+  const focusPass =
+    focus && typeof LadTheory !== "undefined"
+      ? LadTheory.buildPassport(focus, { moodId: state.mood, start: state.start })
+      : null;
+  const focusEdge = focus
+    ? nodes.find((n) => n.pathIdx === state.mapFocus)?.edge
+    : null;
+  const edgeNote =
+    focusEdge && typeof LadTheory !== "undefined" ? LadTheory.edgeTheory(focusEdge) : "";
 
   stage.innerHTML = `
     <div class="map-top">
       <div class="map-hero-copy">
         <h1 class="map-title">Карта лада</h1>
-        <p class="map-lead">Исследуй связи между аккордами. Собирай гармоничные пути.</p>
+        <p class="map-lead">Исследуйте связи между созвучиями. Собирайте гармонические пути.</p>
+        ${modeLine ? `<p class="mood-mode-line">${modeLine}</p>` : ""}
       </div>
       <button type="button" class="mood-pill" id="mapMood">${mood?.title || ""} ▾</button>
     </div>
@@ -625,23 +682,43 @@ function renderMap() {
     <article class="map-info-card">
       <span class="map-info-mark" aria-hidden="true">✦</span>
       <div>
-        <h2 class="map-info-title">${focus ? focus.kind : flavor.title}</h2>
-        <p class="map-info-text">${focus ? focus.why : flavor.text}</p>
+        <h2 class="map-info-title">${
+          focus
+            ? typeof LadTheory !== "undefined"
+              ? LadTheory.upperRomans(focus.kind)
+              : focus.kind
+            : flavor.title
+        }</h2>
+        <p class="map-info-text">${
+          focus
+            ? `${focusPass?.brief.degrees || ""} · ${focusPass?.brief.functions || focus.why}`
+            : flavor.text
+        }</p>
+        ${edgeNote ? `<p class="nmap-edge-theory">${edgeNote}</p>` : ""}
+        ${
+          focus && !hasPlus()
+            ? `<p class="nmap-edge-theory">Полный разбор каденции и родственных оборотов — в Лад+.</p>`
+            : ""
+        }
       </div>
       <button type="button" class="map-info-more" id="mapDetails">${focus ? "К ходу ›" : "Подробнее ›"}</button>
     </article>
 
     <button type="button" class="btn btn-glow btn-block" id="toSong">
-      <span aria-hidden="true">✦</span> Собрать в дорожку <span aria-hidden="true">→</span>
+      Собрать в дорожку →
     </button>
+    <div class="actions" style="margin-top:0.6rem">
+      <button type="button" class="btn btn-ghost" data-open-lad-plus>Лад+</button>
+    </div>
 
     ${
       focus
         ? `<p class="map-focus-route">${focus.path.join(" → ")}</p>`
-        : `<p class="map-focus-route soft">Нажми узел — откроется связь и ход</p>`
+        : `<p class="map-focus-route soft">Нажмите узел — откроется связь и ход</p>`
     }
   `;
 
+  bindTheoryHooks(stage);
   const openFocusPath = () => {
     if (state.mapFocus == null) {
       if (nodes[0]) {
@@ -701,14 +778,24 @@ function renderPath() {
     return;
   }
   const mood = moodById(state.mood);
+  const passport =
+    typeof LadTheory !== "undefined"
+      ? LadTheory.buildPassport(p, { moodId: state.mood, start: state.start })
+      : null;
+  const passportHtml = passport ? LadTheory.renderPassportHtml(passport) : "";
+  const kindLabel =
+    typeof LadTheory !== "undefined" ? LadTheory.upperRomans(p.kind || "") : p.kind || "";
+
   stage.innerHTML = `
-    <p class="kicker">Ход</p>
+    <p class="kicker">Гармонический ход</p>
     <h1 class="h1">${p.path.join(" → ")}</h1>
-    <p class="hand-note">${p.family} · ${p.kind}</p>
+    <p class="hand-note">${p.family} · ${kindLabel}</p>
     <div class="chip-row">
       <span class="chip">${mood?.title}</span>
       <span class="chip">${state.start}</span>
+      <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
+    ${passportHtml}
     <div class="panel">
       ${renderPathDiagrams(p.path)}
       <p class="result-why">${p.why}</p>
@@ -722,19 +809,24 @@ function renderPath() {
     </div>
     <div class="actions">
       <button type="button" class="btn btn-glow btn-block" id="pathToSong">
-        <span aria-hidden="true">✦</span> Собрать в дорожку <span aria-hidden="true">→</span>
+        Собрать в дорожку →
       </button>
     </div>
   `;
+  bindTheoryHooks(stage);
   stage.querySelectorAll("[data-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.song[btn.dataset.slot] = {
         path: [...p.path],
         kind: p.kind,
         family: p.family,
+        why: p.why,
         mood: state.mood,
         start: state.start,
       };
+      if (hasPlus() && typeof LadTheory !== "undefined") {
+        LadTheory.saveSongState(state.song);
+      }
       setScreen("song");
     });
   });
@@ -742,17 +834,36 @@ function renderPath() {
   document.getElementById("pathToSong").addEventListener("click", () => setScreen("song"));
 }
 
+function restoreSavedSong() {
+  if (!hasPlus() || typeof LadTheory === "undefined") return;
+  const saved = LadTheory.loadSongState();
+  if (!saved || typeof saved !== "object") return;
+  SONG_SLOTS.forEach((s) => {
+    if (saved[s.id]) state.song[s.id] = saved[s.id];
+  });
+  const first = SONG_SLOTS.map((s) => state.song[s.id]).find(Boolean);
+  if (first) {
+    if (first.mood) state.mood = first.mood;
+    if (first.start) state.start = first.start;
+  }
+}
+
 function renderSong() {
   const mood = moodById(state.mood);
   const filled = SONG_SLOTS.filter((s) => state.song[s.id]);
+  const plus = hasPlus();
+  const previewHtml =
+    state.pdfPreview && filled.length ? renderPdfPreviewBlock(filled) : "";
+
   stage.innerHTML = `
     <p class="kicker">Дорожка песни</p>
     <h1 class="h1">Соберите форму</h1>
-    <p class="hand-note">аппликатуры и ▶ прямо в частях · инструмент сверху</p>
+    <p class="hand-note">Аппликатуры и прослушивание в частях формы · инструмент сверху</p>
     <div class="chip-row">
       ${mood ? `<span class="chip">${mood.title}</span>` : ""}
-      ${state.start ? `<span class="chip">старт ${state.start}</span>` : ""}
+      ${state.start ? `<span class="chip">центр ${state.start}</span>` : ""}
       <span class="chip">${filled.length} / ${SONG_SLOTS.length}</span>
+      <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
     <div class="song-list">
       ${SONG_SLOTS.map((slot) => {
@@ -762,15 +873,19 @@ function renderSong() {
             <div class="song-part is-empty">
               <p class="label">${slot.title}</p>
               <p class="route">пока пусто</p>
-              <p class="meta">выбери ход на карте и отправь сюда</p>
+              <p class="meta">выберите ход на карте и направьте в эту часть формы</p>
             </div>`;
         }
         const moodTitle = moodById(item.mood)?.title || "";
+        const pass =
+          typeof LadTheory !== "undefined"
+            ? LadTheory.buildPassport(item, { moodId: item.mood, start: item.start }).brief
+            : null;
         return `
           <div class="song-part">
             <p class="label">${slot.title}</p>
             <p class="route">${item.path.join(" → ")}</p>
-            <p class="meta">${moodTitle} · ${item.family}</p>
+            <p class="meta">${moodTitle} · ${item.family}${pass ? ` · ${pass.degrees}` : ""}</p>
             ${renderPathDiagrams(item.path)}
             <div class="actions">
               <button type="button" class="btn btn-ghost" data-open-slot="${slot.id}">Открыть ход</button>
@@ -779,17 +894,25 @@ function renderSong() {
           </div>`;
       }).join("")}
     </div>
+    ${previewHtml}
     <div class="actions">
       <button type="button" class="btn btn-glow" id="exportPdf" ${filled.length ? "" : "disabled"}>
-        Выгрузить PDF
+        ${plus ? "Выгрузить PDF" : "Показать лист (как после оплаты)"}
       </button>
-      <button type="button" class="btn btn-primary" id="toMap">К карте</button>
+      ${
+        plus
+          ? `<button type="button" class="btn btn-primary" id="saveSong">Сохранить дорожку</button>`
+          : `<button type="button" class="btn btn-primary" data-open-lad-plus>Сохранение — в Лад+</button>`
+      }
+      <button type="button" class="btn btn-ghost" id="toMap">К карте</button>
       <button type="button" class="btn btn-ghost" id="resetSong">Очистить</button>
     </div>
   `;
+  bindTheoryHooks(stage);
   stage.querySelectorAll("[data-clear-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.song[btn.dataset.clearSlot] = null;
+      state.pdfPreview = false;
       renderSong();
     });
   });
@@ -797,13 +920,15 @@ function renderSong() {
     btn.addEventListener("click", () => {
       const item = state.song[btn.dataset.openSlot];
       if (!item) return;
-      state.activePath = { path: item.path, kind: item.kind, family: item.family, why: "" };
+      state.activePath = { path: item.path, kind: item.kind, family: item.family, why: item.why || "" };
       state.mood = item.mood;
       state.start = item.start;
+      state.pdfPreview = false;
       setScreen("path");
     });
   });
   document.getElementById("toMap").addEventListener("click", () => {
+    state.pdfPreview = false;
     if (!state.start) setScreen("mood");
     else {
       loadPaths();
@@ -812,11 +937,69 @@ function renderSong() {
   });
   document.getElementById("resetSong").addEventListener("click", () => {
     SONG_SLOTS.forEach((s) => (state.song[s.id] = null));
+    state.pdfPreview = false;
     renderSong();
   });
-  document.getElementById("exportPdf")?.addEventListener("click", () => {
-    if (typeof exportSongToPdf === "function") exportSongToPdf();
+  document.getElementById("saveSong")?.addEventListener("click", () => {
+    if (typeof LadTheory !== "undefined" && LadTheory.saveSongState(state.song)) {
+      alert("Дорожка сохранена на этом устройстве.");
+    }
   });
+  document.getElementById("exportPdf")?.addEventListener("click", () => {
+    if (plus && typeof exportSongToPdf === "function") {
+      exportSongToPdf();
+      return;
+    }
+    // Полный вид листа как после оплаты; выгрузка файла — через Лад+
+    state.pdfPreview = true;
+    renderSong();
+    document.getElementById("pdfPreview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.getElementById("exportPdfReal")?.addEventListener("click", () => {
+    if (plus && typeof exportSongToPdf === "function") exportSongToPdf();
+    else openLadPlus("song");
+  });
+  document.getElementById("closePdfPreview")?.addEventListener("click", () => {
+    state.pdfPreview = false;
+    renderSong();
+  });
+}
+
+function renderPdfPreviewBlock(filledSlots) {
+  const lines = filledSlots
+    .map((slot) => {
+      const item = state.song[slot.id];
+      const pass =
+        typeof LadTheory !== "undefined"
+          ? LadTheory.passportForPdf(item, { moodId: item.mood, start: item.start })
+          : { degrees: "", functions: "", modeLine: "", summary: "" };
+      return `
+        <h3>${slot.title}</h3>
+        <p><strong>${item.path.join(" → ")}</strong></p>
+        <p>Ступени: ${pass.degrees || "—"}</p>
+        <p>${pass.functions || ""}</p>
+        <p>${pass.modeLine || ""}</p>
+        <p>${pass.summary || item.why || ""}</p>
+        ${pass.cadence ? `<p>Каденция: ${pass.cadence}</p>` : ""}
+        <p>Аппликатуры — на листе под каждым созвучием (как в рабочей выгрузке).</p>`;
+    })
+    .join("");
+
+  const plus = hasPlus();
+  return `
+    <div class="pdf-preview-frame" id="pdfPreview">
+      <h3>Лист песни — вид как после оплаты</h3>
+      <p>Лад · дорожка · гармонический комментарий · аппликатуры</p>
+      ${lines}
+      <div class="pdf-preview-actions actions">
+        ${
+          plus
+            ? `<button type="button" class="btn btn-glow" id="exportPdfReal">Скачать PDF</button>`
+            : `<button type="button" class="btn btn-glow" data-open-lad-plus>Скачивание и сохранение — в Лад+</button>`
+        }
+        <button type="button" class="btn btn-ghost" id="closePdfPreview">Закрыть предпросмотр</button>
+      </div>
+    </div>`;
 }
 
 btnBack.addEventListener("click", goBack);
@@ -847,4 +1030,5 @@ document.querySelectorAll("[data-instrument]").forEach((btn) => {
   });
 });
 
+restoreSavedSong();
 setScreen("mood");

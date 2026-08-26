@@ -43,13 +43,24 @@ function collectSongExportData() {
     const item = state.song?.[slot.id];
     if (!item?.path?.length) return null;
     const diagrams = diagramsForPath(item.path);
+    const pass =
+      typeof LadTheory !== "undefined"
+        ? LadTheory.passportForPdf(item, { moodId: item.mood, start: item.start })
+        : null;
+    const kind =
+      typeof LadTheory !== "undefined" ? LadTheory.upperRomans(item.kind || "") : item.kind || "";
     return {
       title: slot.title,
       path: item.path,
       route: item.path.join(" → "),
       family: item.family || "",
-      kind: item.kind || "",
+      kind,
       moodTitle: moodById(item.mood)?.title || mood?.title || "",
+      theory: pass
+        ? [pass.degrees, pass.functions, pass.modeLine, pass.summary, pass.cadence]
+            .filter(Boolean)
+            .join(" · ")
+        : item.why || "",
       diagrams,
     };
   }).filter(Boolean);
@@ -357,10 +368,26 @@ function drawSongExportCanvas(data) {
   data.parts.forEach((part, idx) => {
     const routeLines = wrapCanvasText(probe, part.route, contentW - 32);
     const meta = [part.moodTitle, part.family, part.kind].filter(Boolean).join(" · ");
+    probe.font = "500 12px 'Source Sans 3', system-ui, sans-serif";
+    const theoryLines = part.theory
+      ? wrapCanvasText(probe, part.theory, contentW - 32)
+      : [];
+    probe.font = "700 28px 'Cormorant Garamond', Georgia, serif";
     const metrics = diagramRowMetrics(part.diagrams, contentW);
     const diagramsH = metrics.rows ? 18 + metrics.rows * metrics.rowH : 0;
-    const blockH = 28 + routeLines.length * 30 + (meta ? 22 : 8) + diagramsH + 16;
-    layout.push({ type: "part", y, idx, part, routeLines, meta, blockH, metrics });
+    const theoryH = theoryLines.length ? theoryLines.length * 16 + 8 : 0;
+    const blockH = 28 + routeLines.length * 30 + (meta ? 22 : 8) + theoryH + diagramsH + 16;
+    layout.push({
+      type: "part",
+      y,
+      idx,
+      part,
+      routeLines,
+      meta,
+      theoryLines,
+      blockH,
+      metrics,
+    });
     y += blockH + 14;
   });
 
@@ -450,6 +477,16 @@ function drawSongExportCanvas(data) {
         ctx.fillText(item.meta, margin + 16, ry + 2);
         ry += 22;
       } else {
+        ry += 8;
+      }
+
+      if (item.theoryLines?.length) {
+        ctx.fillStyle = "#4a433c";
+        ctx.font = "500 12px 'Source Sans 3', system-ui, sans-serif";
+        item.theoryLines.forEach((line) => {
+          ctx.fillText(line, margin + 16, ry);
+          ry += 16;
+        });
         ry += 8;
       }
 
@@ -593,9 +630,13 @@ function downloadBlob(blob, filename) {
 }
 
 function exportSongToPdf() {
+  if (typeof LadTheory !== "undefined" && !LadTheory.hasLadPlus()) {
+    window.alert("Выгрузка PDF доступна в Лад+.");
+    return false;
+  }
   const data = collectSongExportData();
   if (!data.parts.length) {
-    window.alert("Сначала добавь хотя бы один ход на дорожку.");
+    window.alert("Сначала добавьте хотя бы один ход на дорожку.");
     return false;
   }
 

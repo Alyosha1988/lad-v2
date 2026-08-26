@@ -1074,6 +1074,10 @@
       .map((r) => {
         const text = plain ? r.plain : r.pro;
         const isFlat = /^b/i.test(r.degree);
+        const diag =
+          typeof renderPathDiagrams === "function"
+            ? `<div class="degree-row__diag">${renderPathDiagrams([r.chord])}</div>`
+            : "";
         return `
           <article class="degree-row ${isFlat ? "is-flat" : ""}">
             <div class="degree-row__deg">${escapeHtml(r.degree)}</div>
@@ -1081,6 +1085,7 @@
               <p class="degree-row__chord">${escapeHtml(r.chord)}</p>
               <p class="degree-row__why">${escapeHtml(text)}</p>
             </div>
+            ${diag}
           </article>`;
       })
       .join("");

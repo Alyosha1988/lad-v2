@@ -1449,3 +1449,90 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
 .pdf-preview-actions {
   margin-top: var(--space-3);
 }
+
+/* ----- glossary ----- */
+.glossary-screen .hand-note { margin-bottom: 0.85rem; }
+.voice-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+.voice-toggle .chip-btn.is-on {
+  background: rgba(240, 163, 90, 0.22);
+  border-color: rgba(240, 163, 90, 0.55);
+  color: #f7ebdc;
+}
+.glossary-search input {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: rgba(20, 14, 10, 0.75);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  margin-bottom: 0.85rem;
+}
+.glossary-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.glossary-card {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(20, 14, 10, 0.65);
+}
+.glossary-card.is-focus {
+  border-color: var(--line-strong);
+  background: rgba(240, 163, 90, 0.1);
+}
+.glossary-card h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: #f7ebdc;
+}
+.glossary-card p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; line-height: 1.45; }
+.glossary-plain, .glossary-pro { margin-top: 0.45rem !important; }
+.glossary-aliases {
+  margin-top: 0.45rem !important;
+  font-size: 0.78rem !important;
+  color: var(--ink-mute) !important;
+}
+.theory-passport-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+.theory-passport-head .theory-kicker { margin: 0; }
+.theory-plain-hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  color: var(--ink-mute);
+}
+.term-link {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(240, 163, 90, 0.45);
+  text-underline-offset: 0.15em;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}

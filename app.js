@@ -41,7 +41,7 @@ const SONG_SLOTS = [
 ];
 
 const state = {
-  screen: "mood", // mood | start | discover | map | path | song | plus
+  screen: "mood", // mood | start | discover | map | path | song | plus | glossary
   mood: null,
   start: null,
   paths: [],
@@ -59,6 +59,9 @@ const state = {
     baseFret: 1,
   },
   returnFromPlus: "mood",
+  returnFromGlossary: "mood",
+  glossaryQuery: "",
+  glossaryFocus: null,
   pdfPreview: false,
 };
 
@@ -79,7 +82,12 @@ function setScreen(name) {
   document.querySelectorAll(".tab").forEach((tab) => {
     const nav = tab.dataset.nav;
     const active =
-      (nav === "mood" && (name === "mood" || name === "start" || name === "discover" || name === "plus")) ||
+      (nav === "mood" &&
+        (name === "mood" ||
+          name === "start" ||
+          name === "discover" ||
+          name === "plus" ||
+          name === "glossary")) ||
       (nav === "map" && (name === "map" || name === "path")) ||
       (nav === "song" && name === "song");
     tab.classList.toggle("is-active", active);
@@ -94,8 +102,15 @@ function openLadPlus(fromScreen) {
   setScreen("plus");
 }
 
+function openGlossary(fromScreen, termId) {
+  state.returnFromGlossary = fromScreen || state.screen;
+  state.glossaryFocus = termId || null;
+  setScreen("glossary");
+}
+
 function goBack() {
   if (state.screen === "plus") setScreen(state.returnFromPlus || "mood");
+  else if (state.screen === "glossary") setScreen(state.returnFromGlossary || "mood");
   else if (state.screen === "start") setScreen("mood");
   else if (state.screen === "discover") setScreen("start");
   else if (state.screen === "map") setScreen(state.start ? "start" : "mood");
@@ -111,6 +126,11 @@ function hasPlus() {
 function bindTheoryHooks(root) {
   root.querySelectorAll("[data-open-lad-plus]").forEach((btn) => {
     btn.addEventListener("click", () => openLadPlus(state.screen));
+  });
+  root.querySelectorAll("[data-open-glossary]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openGlossary(state.screen, btn.dataset.termId || null);
+    });
   });
 }
 
@@ -139,6 +159,7 @@ function render() {
   else if (state.screen === "path") renderPath();
   else if (state.screen === "song") renderSong();
   else if (state.screen === "plus") renderLadPlus();
+  else if (state.screen === "glossary") renderGlossary();
 }
 
 function renderLadPlus() {
@@ -150,6 +171,33 @@ function renderLadPlus() {
     LadTheory.bindLadPlusScreen(stage, {
       onChange: () => renderLadPlus(),
       onBack: () => setScreen(state.returnFromPlus || "mood"),
+    });
+  }
+}
+
+function renderGlossary() {
+  stage.innerHTML =
+    typeof LadTheory !== "undefined"
+      ? LadTheory.renderGlossaryScreen({
+          variant: "night",
+          query: state.glossaryQuery || "",
+          focusId: state.glossaryFocus,
+        })
+      : `<p class="hand-note">Словарь не загружен.</p>`;
+  if (typeof LadTheory !== "undefined") {
+    LadTheory.bindGlossaryScreen(stage, {
+      onChange: ({ query }) => {
+        state.glossaryQuery = query || "";
+        state.glossaryFocus = null;
+        renderGlossary();
+        const input = document.getElementById("glossaryQuery");
+        if (input) {
+          input.focus();
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }
+      },
+      onBack: () => setScreen(state.returnFromGlossary || "mood"),
     });
   }
 }
@@ -184,6 +232,7 @@ function renderMood() {
 
     <div class="actions" style="margin-top:1rem">
       <button type="button" class="btn btn-ghost" id="openPlusHome">Лад+</button>
+      <button type="button" class="btn btn-ghost" data-open-glossary>Словарь</button>
     </div>
 
     <button type="button" class="ink-banner" id="toSongBanner">
@@ -206,6 +255,7 @@ function renderMood() {
   });
   document.getElementById("toSongBanner").addEventListener("click", () => setScreen("song"));
   document.getElementById("openPlusHome")?.addEventListener("click", () => openLadPlus("mood"));
+  bindTheoryHooks(stage);
 }
 
 function renderStart() {

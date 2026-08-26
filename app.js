@@ -132,6 +132,13 @@ function bindTheoryHooks(root) {
       openGlossary(state.screen, btn.dataset.termId || null);
     });
   });
+  root.querySelectorAll("[data-set-voice]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (typeof LadTheory === "undefined") return;
+      LadTheory.setVoice(btn.dataset.setVoice);
+      render();
+    });
+  });
 }
 
 function loadPaths() {
@@ -262,16 +269,23 @@ function renderStart() {
   const mood = moodById(state.mood);
   const modeLine =
     typeof LadTheory !== "undefined" && state.mood
-      ? LadTheory.moodModeInfo(state.mood).modeLine
+      ? LadTheory.moodLineForVoice
+        ? LadTheory.moodLineForVoice(state.mood)
+        : LadTheory.moodModeInfo(state.mood).modeLine
       : "";
   stage.innerHTML = `
-    <p class="kicker">Тональный центр</p>
+    <p class="kicker">${typeof LadTheory !== "undefined" && LadTheory.getVoice() === "plain" ? "Дом гармонии" : "Тональный центр"}</p>
     <h1 class="h1">${mood?.title || ""}</h1>
     ${modeLine ? `<p class="mood-mode-line">${modeLine}</p>` : ""}
-    <p class="hand-note">Выберите тонику — она станет тональным центром карты.</p>
+    <p class="hand-note">${
+      typeof LadTheory !== "undefined" && LadTheory.getVoice() === "plain"
+        ? "Выберите аккорд-дом — от него карта будет вести историю."
+        : "Выберите тонику — она станет тональным центром карты."
+    }</p>
     <div class="chip-row">
       <button type="button" class="chip chip-btn" id="changeMood">${mood?.title || ""} ▾</button>
       <button type="button" class="chip chip-btn" id="openPlusStart">Лад+</button>
+      <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
     </div>
     <button type="button" class="btn btn-glow btn-block" id="toDiscover">
       Не знаю аккорд — показать на грифе / клавишах
@@ -285,6 +299,7 @@ function renderStart() {
   `;
   document.getElementById("changeMood")?.addEventListener("click", () => setScreen("mood"));
   document.getElementById("openPlusStart")?.addEventListener("click", () => openLadPlus("start"));
+  bindTheoryHooks(stage);
   document.getElementById("toDiscover")?.addEventListener("click", () => {
     state.discover = {
       frets: typeof emptyGuitarFrets === "function" ? emptyGuitarFrets() : [-1, -1, -1, -1, -1, -1],
@@ -701,7 +716,11 @@ function renderMap() {
   const flavor = MOOD_FLAVOR[state.mood] || MOOD_FLAVOR.dark;
   const focus = state.mapFocus != null ? paths[state.mapFocus] : null;
   const modeLine =
-    typeof LadTheory !== "undefined" ? LadTheory.moodModeInfo(state.mood).modeLine : "";
+    typeof LadTheory !== "undefined"
+      ? LadTheory.moodLineForVoice
+        ? LadTheory.moodLineForVoice(state.mood)
+        : LadTheory.moodModeInfo(state.mood).modeLine
+      : "";
   const focusPass =
     focus && typeof LadTheory !== "undefined"
       ? LadTheory.buildPassport(focus, { moodId: state.mood, start: state.start })
@@ -711,6 +730,12 @@ function renderMap() {
     : null;
   const edgeNote =
     focusEdge && typeof LadTheory !== "undefined" ? LadTheory.edgeTheory(focusEdge) : "";
+  const plain = typeof LadTheory !== "undefined" && LadTheory.getVoice() === "plain";
+  const focusBlurb = focus
+    ? plain
+      ? `${focusPass?.brief.degrees || ""} · ${focusPass?.brief.functionsPlain || focus.why}`
+      : `${focusPass?.brief.degrees || ""} · ${focusPass?.brief.functions || focus.why}`
+    : flavor.text;
 
   stage.innerHTML = `
     <div class="map-top">
@@ -736,11 +761,7 @@ function renderMap() {
               : focus.kind
             : flavor.title
         }</h2>
-        <p class="map-info-text">${
-          focus
-            ? `${focusPass?.brief.degrees || ""} · ${focusPass?.brief.functions || focus.why}`
-            : flavor.text
-        }</p>
+        <p class="map-info-text">${focus ? focusBlurb : flavor.text}</p>
         ${edgeNote ? `<p class="nmap-edge-theory">${edgeNote}</p>` : ""}
         ${
           focus && !hasPlus()

@@ -204,9 +204,10 @@
   function getVoice() {
     try {
       const v = localStorage.getItem(VOICE_KEY);
-      return v === "plain" || v === "pro" ? v : "pro";
+      // A+D: по умолчанию — простыми словами
+      return v === "pro" ? "pro" : "plain";
     } catch (_) {
-      return "pro";
+      return "plain";
     }
   }
 
@@ -260,7 +261,7 @@
       <section class="glossary-screen ${variant === "paper" ? "is-paper" : ""}">
         <p class="kicker">Словарь</p>
         <h1 class="h1">Слова гармонии</h1>
-        <p class="hand-note">Коротко для новичка и точнее для музыканта. Переключайте голос комментариев.</p>
+        <p class="hand-note">По умолчанию — простыми словами: зачем ход работает. Теория — в карточках и по тапу. Можно включить голос музыканта.</p>
 
         <div class="voice-toggle" role="group" aria-label="Голос комментариев">
           <button type="button" class="chip chip-btn ${voice === "plain" ? "is-on" : ""}" data-voice="plain">Простыми словами</button>
@@ -342,33 +343,45 @@
   const MOOD_MODE = {
     bright: {
       modeLine: "Ионийский лад · мажорная диатоника",
+      plainLine: "Светло и открыто — знакомый мажорный воздух",
       modes: ["ионийский", "лидийский"],
       note: "Ясный тональный центр, автентика и плагальность без затемнения.",
+      plainNote: "Фраза звучит ясно: легко услышать, где дом, и спокойно к нему вернуться.",
     },
     dark: {
       modeLine: "Эолийский / гармонический минор",
+      plainLine: "Тише и глубже — минорное дыхание",
       modes: ["эолийский", "гармонический минор", "мелодия минор"],
       note: "Минорный центр; возможны VII натуральная и VII гармоническая (доминанта).",
+      plainNote: "Звучит камернее: больше тени, возврат домой может быть мягким или более острым.",
     },
     tense: {
       modeLine: "Фригийский · доминантовые цепочки · альтерации",
+      plainLine: "Острее и напряжённее — хочется разряда",
       modes: ["фригийский", "гармонический минор", "сверхдоминантовые обороты"],
       note: "Усиленное тяготение, альтерированные доминанты, острые разрешения.",
+      plainNote: "Внутри хода есть конфликт: ухо ждёт, когда напряжение отпустит.",
     },
     dream: {
       modeLine: "Лидийский / миксолидийский · плавающая модальность",
+      plainLine: "Дымка и мягкие края — меньше «обязан вернуться»",
       modes: ["лидийский", "миксолидийский", "дорийский"],
       note: "Ослабленная функциональность, септаккорды, мягкие каденции.",
+      plainNote: "Края смазаны: красиво висеть в краске, не торопя финал.",
     },
     pulse: {
       modeLine: "Дорийский лад · риффовая модальность",
+      plainLine: "Пульс и повтор — тело держит петлю",
       modes: ["дорийский", "миксолидийский"],
       note: "Устойчивый модальный грув; VI мажорная в миноре даёт «открытый» минор.",
+      plainNote: "Работает повтором: короткая петля сама держит форму, как рифф.",
     },
     groovy: {
       modeLine: "Дорийский / миксолидийский · блюзовая диатоника",
+      plainLine: "Грув и блюзовая тень — повтор важнее правил",
       modes: ["дорийский", "миксолидийский", "блюзовый лад"],
       note: "Повтор, рифф, доминантовые краски на I и IV.",
+      plainNote: "Тело и повтор важнее «правильной» каденции: ход качается.",
     },
   };
 
@@ -381,6 +394,17 @@
     пульс: "Модальный рифф; центр держится повтором, а не только каденцией.",
     дымка: "Лидийская / миксолидийская окраска, размытое тяготение.",
     ход: "Гармоническое продвижение относительно избранной тоники.",
+  };
+
+  const EDGE_PLAIN = {
+    "к тонике": "Тянет обратно к дому — после этого звена фраза хочет закончиться.",
+    спуск: "Движение вниз, мягче и внутрь — энергия спадает.",
+    мягко: "Поворот без резкого рывка — скорее родство, чем конфликт.",
+    припев: "Узнаваемая яркая петля — то, что хочется повторить голосом.",
+    острее: "Появляется трение: ухо ждёт разрешения.",
+    пульс: "Держится повтором и телом, а не только финальной точкой.",
+    дымка: "Края мягкие: можно побыть в краске, не спеша домой.",
+    ход: "Просто следующий шаг истории относительно выбранного дома.",
   };
 
   function hasLadPlus() {
@@ -429,7 +453,21 @@
     return MOOD_MODE[moodId] || MOOD_MODE.dark;
   }
 
-  function edgeTheory(label) {
+  function moodLineForVoice(moodId, voice) {
+    const m = moodModeInfo(moodId);
+    const v = voice || getVoice();
+    return v === "plain" ? m.plainLine || m.modeLine : m.modeLine;
+  }
+
+  function moodNoteForVoice(moodId, voice) {
+    const m = moodModeInfo(moodId);
+    const v = voice || getVoice();
+    return v === "plain" ? m.plainNote || m.note : m.note;
+  }
+
+  function edgeTheory(label, voice) {
+    const v = voice || getVoice();
+    if (v === "plain") return EDGE_PLAIN[label] || EDGE_PLAIN["ход"];
     return EDGE_THEORY[label] || EDGE_THEORY["ход"];
   }
 
@@ -446,32 +484,94 @@
 
   function guessFunctions(degrees, moodId) {
     const d = degrees.toUpperCase();
-    if (/V/.test(d) && /I/.test(d)) return "Тоника → доминанта (автентическое тяготение)";
-    if (/IV/.test(d) && /I/.test(d) && !/V/.test(d)) return "Плагальное движение (субдоминанта → тоника)";
-    if (/II/.test(d) && /V/.test(d)) return "Субдоминантовая подготовка → доминанта (оборот II–V)";
-    if (moodId === "dark" || moodId === "tense") return "Минорный план с усиленным тяготением";
-    if (moodId === "dream" || moodId === "pulse" || moodId === "groovy") return "Модальный план; функция мягче диатоники";
-    return "Диатоническое развёртывание вокруг тоники";
+    if (/V/.test(d) && /I/.test(d)) {
+      return {
+        pro: "Тоника → доминанта (автентическое тяготение)",
+        plain: "В ходе есть тяга назад к дому — поэтому фраза звучит собранно.",
+      };
+    }
+    if (/IV/.test(d) && /I/.test(d) && !/V/.test(d)) {
+      return {
+        pro: "Плагальное движение (субдоминанта → тоника)",
+        plain: "Мягкий шаг в сторону и возврат домой — без острого рывка.",
+      };
+    }
+    if (/II/.test(d) && /V/.test(d)) {
+      return {
+        pro: "Субдоминантовая подготовка → доминанта (оборот II–V)",
+        plain: "Сначала подготовка, потом тяга к дому — классический «разгон» к ответу.",
+      };
+    }
+    if (moodId === "dark" || moodId === "tense") {
+      return {
+        pro: "Минорный план с усиленным тяготением",
+        plain: "Минорная история: напряжение сильнее, возврат домой заметнее.",
+      };
+    }
+    if (moodId === "dream" || moodId === "pulse" || moodId === "groovy") {
+      return {
+        pro: "Модальный план; функция мягче диатоники",
+        plain: "Держится настроением и повтором сильнее, чем жёсткой «тягой».",
+      };
+    }
+    return {
+      pro: "Диатоническое развёртывание вокруг тоники",
+      plain: "Движение вокруг дома без резких поворотов — ход читается легко.",
+    };
   }
 
   function guessCadence(degrees, pathIdea) {
     const blob = `${degrees} ${pathIdea?.kind || ""} ${pathIdea?.why || ""}`.toLowerCase();
-    if (/v7|доминант|каденц|auth/.test(blob) || /V/.test(degrees)) return "Автентическая каденция (V→I) или её подготовка";
-    if (/плаг|iv–i|amen|gospel/.test(blob)) return "Плагальная каденция (IV→I)";
-    if (/half|половин/.test(blob)) return "Половинная каденция (остановка на доминанте)";
-    return "Открытый оборот без жёсткого каденционного закрепления";
+    if (/v7|доминант|каденц|auth/.test(blob) || /V/.test(degrees)) {
+      return {
+        pro: "Автентическая каденция (V→I) или её подготовка",
+        plain: "Финал как «вопрос → ответ»: после напряжения хочется услышать дом.",
+      };
+    }
+    if (/плаг|iv–i|amen|gospel/.test(blob)) {
+      return {
+        pro: "Плагальная каденция (IV→I)",
+        plain: "Мягкое «аминь»: возврат домой без резкого толчка.",
+      };
+    }
+    if (/half|половин/.test(blob)) {
+      return {
+        pro: "Половинная каденция (остановка на доминанте)",
+        plain: "Остановка на полуслове: фраза зависла перед ответом.",
+      };
+    }
+    return {
+      pro: "Открытый оборот без жёсткого каденционного закрепления",
+      plain: "Конец открытый: можно продолжать или повторить петлю.",
+    };
   }
 
   function voiceLeadingNote(pathIdea) {
     if (pathIdea?.fit != null && pathIdea.fit < 3) {
-      return "Аппликатуры подобраны с малым сдвигом руки — голосоведение на грифе остаётся связным.";
+      return {
+        pro: "Аппликатуры подобраны с малым сдвигом руки — голосоведение на грифе остаётся связным.",
+        plain: "По грифу идти удобно: пальцы почти не прыгают — ход «поётся» сам.",
+      };
     }
-    return "Следите за общим тоном и ближайшими позициями: так сохраняется связность голосоведения.";
+    return {
+      pro: "Следите за общим тоном и ближайшими позициями: так сохраняется связность голосоведения.",
+      plain: "Ищите общие звуки и соседние формы — так переход между аккордами ощущается цельным.",
+    };
+  }
+
+  function plainWhySummary(pathIdea, degrees, moodId) {
+    const why = String(pathIdea?.why || "").trim();
+    if (why) {
+      // оставляем авторский why, но без давления терминами — upperRomans уже нормализует ступени
+      return upperRomans(why);
+    }
+    const mood = moodModeInfo(moodId).plainLine || "в выбранном настроении";
+    return `Ход ${degrees} работает в настроении «${mood}»: ухо считывает путь относительно дома.`;
   }
 
   /**
    * Гармонический паспорт хода.
-   * level brief = I–II (всем); full = III (Лад+).
+   * A = голос plain/pro; D = в plain говорим «почему работает», теория — в словаре.
    */
   function buildPassport(pathIdea, opts = {}) {
     const moodId = opts.moodId || "dark";
@@ -480,28 +580,44 @@
     const degrees = guessDegrees(pathIdea);
     const functions = guessFunctions(degrees, moodId);
     const cadence = guessCadence(degrees, pathIdea);
-    const summaryRaw =
-      pathIdea?.why || `Оборот ${degrees} в ладовой опоре «${mode.modeLine}».`;
+    const leading = voiceLeadingNote(pathIdea);
     const brief = {
       degrees,
-      functions,
+      functions: functions.pro,
+      functionsPlain: functions.plain,
       modeLine: mode.modeLine,
-      center: `Тональный центр: ${start}`,
-      summary: upperRomans(summaryRaw),
+      modeLinePlain: mode.plainLine || mode.modeLine,
+      center: start,
+      summary: upperRomans(pathIdea?.why || `Оборот ${degrees} в ладовой опоре «${mode.modeLine}».`),
+      summaryPlain: plainWhySummary(pathIdea, degrees, moodId),
     };
     const full = {
       ...brief,
-      cadence,
+      cadence: cadence.pro,
+      cadencePlain: cadence.plain,
       modes: mode.modes,
       modeNote: mode.note,
-      voiceLeading: voiceLeadingNote(pathIdea),
+      modeNotePlain: mode.plainNote || mode.note,
+      voiceLeading: leading.pro,
+      voiceLeadingPlain: leading.plain,
       family: pathIdea?.family || "",
       kind: upperRomans(pathIdea?.kind || ""),
       alternatives:
         "Родственные обороты: замена медианты, плагальный ответ IV–I, вторичная доминанта к V, модальное заимствование bVII / bVI.",
+      alternativesPlain:
+        "Что ещё попробовать: мягкий соседний поворот, спокойный возврат домой, более острый «толчок» к ответу, аккорд из соседней краски.",
       glossaryHints: ["тоника", "доминанта", "каденция", "лад"],
     };
     return { brief, full };
+  }
+
+  function renderVoiceToggleMini() {
+    const voice = getVoice();
+    return `
+      <div class="voice-toggle voice-toggle--mini" role="group" aria-label="Голос комментариев">
+        <button type="button" class="chip chip-btn ${voice === "plain" ? "is-on" : ""}" data-set-voice="plain">Простыми словами</button>
+        <button type="button" class="chip chip-btn ${voice === "pro" ? "is-on" : ""}" data-set-voice="pro">Как у музыкантов</button>
+      </div>`;
   }
 
   function renderPassportHtml(passport, opts = {}) {
@@ -511,36 +627,60 @@
     const full = passport.full;
     const showTeaser = !wantFull;
     const degreesOk = brief.degrees && brief.degrees.includes("–");
-    const voice = getVoice();
-    const plain = voice === "plain";
+    const plain = getVoice() === "plain";
 
-    const functionsText = plain
-      ? (findGlossaryEntry("функция")
-          ? `Роль хода: ${brief.functions.replace("Тоника → доминанта (автентическое тяготение)", "из дома к тяге назад").replace("Плагальное движение (субдоминанта → тоника)", "мягкий шаг в сторону и возврат домой").replace("Субдоминантовая подготовка → доминанта (оборот II–V)", "подготовка и затем тяга к дому").replace("Минорный план с усиленным тяготением", "минорная история с более сильным желанием вернуться").replace("Модальный план; функция мягче диатоники", "скорее настроение и повтор, чем жёсткая «тяга»").replace("Диатоническое развёртывание вокруг тоники", "движение вокруг дома без резких поворотов")}`
-          : brief.functions)
-      : brief.functions;
+    const title = plain ? "Почему этот ход работает" : "Гармонический паспорт";
+    const functionsText = plain ? brief.functionsPlain || brief.functions : brief.functions;
+    const modeText = plain ? brief.modeLinePlain || brief.modeLine : brief.modeLine;
+    const summaryText = plain ? brief.summaryPlain || brief.summary : brief.summary;
 
     let html = `
-      <section class="theory-passport">
+      <section class="theory-passport ${plain ? "is-plain" : "is-pro"}">
         <div class="theory-passport-head">
-          <p class="theory-kicker">Гармонический паспорт</p>
+          <p class="theory-kicker">${escapeHtml(title)}</p>
           ${renderGlossaryLink("Словарь")}
         </div>
+        ${renderVoiceToggleMini()}
         ${
           degreesOk
             ? `<p class="theory-degrees">${escapeHtml(brief.degrees)}</p>`
             : `<p class="theory-degrees theory-degrees--soft">${escapeHtml(brief.degrees || "—")}</p>`
         }
-        ${plain ? `<p class="theory-plain-hint">Ступени — «адреса» аккордов относительно дома (I).</p>` : ""}
-        <p class="theory-line"><span class="theory-label">Функции</span>${linkifyTheoryTerms(functionsText)}</p>
-        <p class="theory-line"><span class="theory-label">Лад</span>${linkifyTheoryTerms(brief.modeLine)}</p>
-        <p class="theory-line"><span class="theory-label">Центр</span>${escapeHtml(
-          brief.center.replace(/^Тональный центр:\s*/i, "")
-        )}</p>
-        <p class="theory-summary">${linkifyTheoryTerms(brief.summary)}</p>`;
+        ${
+          plain
+            ? `<p class="theory-plain-hint">Римские цифры — адреса относительно дома (I). Нажмите слово в словаре, если оно незнакомо.</p>`
+            : ""
+        }
+        <p class="theory-line"><span class="theory-label">${
+          plain ? "Почему" : "Функции"
+        }</span>${plain ? escapeHtml(functionsText) : linkifyTheoryTerms(functionsText)}</p>
+        <p class="theory-line"><span class="theory-label">${
+          plain ? "Настроение" : "Лад"
+        }</span>${plain ? escapeHtml(modeText) : linkifyTheoryTerms(modeText)}</p>
+        <p class="theory-line"><span class="theory-label">${
+          plain ? "Дом" : "Центр"
+        }</span>${escapeHtml(brief.center)}</p>
+        <p class="theory-summary">${
+          plain ? escapeHtml(summaryText) : linkifyTheoryTerms(summaryText)
+        }</p>`;
 
     if (wantFull) {
-      html += `
+      if (plain) {
+        html += `
+        <p class="theory-line"><span class="theory-label">Финал</span>${escapeHtml(
+          full.cadencePlain || full.cadence
+        )}</p>
+        <p class="theory-line"><span class="theory-label">Ощущение краски</span>${escapeHtml(
+          full.modeNotePlain || full.modeNote
+        )}</p>
+        <p class="theory-line"><span class="theory-label">По грифу</span>${escapeHtml(
+          full.voiceLeadingPlain || full.voiceLeading
+        )}</p>
+        <p class="theory-line"><span class="theory-label">Что ещё попробовать</span>${escapeHtml(
+          full.alternativesPlain || full.alternatives
+        )}</p>`;
+      } else {
+        html += `
         <p class="theory-line"><span class="theory-label">Каденция</span>${linkifyTheoryTerms(full.cadence)}</p>
         <p class="theory-line"><span class="theory-label">Ладовая глубина</span>${linkifyTheoryTerms(
           full.modes.join(" · ")
@@ -551,10 +691,15 @@
         <p class="theory-line"><span class="theory-label">Родственные обороты</span>${linkifyTheoryTerms(
           full.alternatives
         )}</p>`;
+      }
     } else if (showTeaser) {
       html += `
         <div class="theory-lock">
-          <p>Полный разбор: каденция, ладовая глубина и родственные обороты — в <strong>Лад+</strong>.</p>
+          <p>${
+            plain
+              ? "Больше подробностей: финал хода, ощущение краски и соседние варианты — в <strong>Лад+</strong>."
+              : "Полный разбор: каденция, ладовая глубина и родственные обороты — в <strong>Лад+</strong>."
+          }</p>
           <button type="button" class="btn btn-glow btn-tiny" data-open-lad-plus>Открыть Лад+</button>
         </div>`;
     }
@@ -564,23 +709,32 @@
   }
 
   function renderMoodModeLine(moodId) {
-    const m = moodModeInfo(moodId);
-    return `<p class="mood-mode-line">${escapeHtml(m.modeLine)}</p>`;
+    return `<p class="mood-mode-line">${escapeHtml(moodLineForVoice(moodId))}</p>`;
   }
 
   function renderCenterCard(symbol, moodId) {
-    const mode = moodModeInfo(moodId || "bright");
+    const plain = getVoice() === "plain";
     const isMinor = /m(?!aj)/i.test(symbol) || /dim|ø|m7b5/i.test(symbol);
-    const role = isMinor
-      ? "Минорный тональный центр (эолийская / гармоническая опора)."
-      : "Мажорный тональный центр (ионийская опора).";
+    const role = plain
+      ? isMinor
+        ? "Это ваш дом в минорной краске — тише и глубже."
+        : "Это ваш дом в мажорной краске — светлее и открытее."
+      : isMinor
+        ? "Минорный тональный центр (эолийская / гармоническая опора)."
+        : "Мажорный тональный центр (ионийская опора).";
     return `
-      <section class="theory-passport theory-center">
-        <p class="theory-kicker">Тональный центр</p>
+      <section class="theory-passport theory-center ${plain ? "is-plain" : "is-pro"}">
+        <div class="theory-passport-head">
+          <p class="theory-kicker">${plain ? "Дом гармонии" : "Тональный центр"}</p>
+          ${renderGlossaryLink("Словарь")}
+        </div>
+        ${renderVoiceToggleMini()}
         <p class="theory-degrees">${escapeHtml(symbol)}</p>
         <p class="theory-line">${escapeHtml(role)}</p>
-        <p class="theory-line"><span class="theory-label">Лад</span>${escapeHtml(mode.modeLine)}</p>
-        <p class="theory-summary">${escapeHtml(mode.note)}</p>
+        <p class="theory-line"><span class="theory-label">${
+          plain ? "Настроение" : "Лад"
+        }</span>${escapeHtml(moodLineForVoice(moodId))}</p>
+        <p class="theory-summary">${escapeHtml(moodNoteForVoice(moodId))}</p>
       </section>`;
   }
 
@@ -690,12 +844,13 @@
   function passportForPdf(pathIdea, opts) {
     const p = buildPassport(pathIdea, opts);
     const use = hasLadPlus() ? p.full : p.brief;
+    const plain = getVoice() === "plain";
     return {
       degrees: use.degrees,
-      functions: use.functions,
-      modeLine: use.modeLine,
-      summary: use.summary,
-      cadence: use.cadence || "",
+      functions: plain ? use.functionsPlain || use.functions : use.functions,
+      modeLine: plain ? use.modeLinePlain || use.modeLine : use.modeLine,
+      summary: plain ? use.summaryPlain || use.summary : use.summary,
+      cadence: plain ? use.cadencePlain || use.cadence || "" : use.cadence || "",
       locked: !hasLadPlus(),
     };
   }
@@ -710,7 +865,10 @@
     freePathLimit,
     upperRomans,
     moodModeInfo,
+    moodLineForVoice,
+    moodNoteForVoice,
     edgeTheory,
+    renderVoiceToggleMini,
     buildPassport,
     renderPassportHtml,
     renderMoodModeLine,

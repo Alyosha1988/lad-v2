@@ -1536,3 +1536,10 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   clip: rect(0,0,0,0);
   border: 0;
 }
+
+.voice-toggle--mini {
+  margin: 0 0 0.75rem;
+}
+.theory-passport.is-plain .theory-kicker {
+  letter-spacing: 0.08em;
+}

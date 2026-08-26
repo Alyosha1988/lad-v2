@@ -1199,6 +1199,7 @@ document.querySelectorAll("[data-instrument]").forEach((btn) => {
     setTimeout(() => {
       if (state.screen === "path") renderPath();
       else if (state.screen === "discover") renderDiscover();
+      else if (state.screen === "degrees") renderDegrees();
       else if (state.screen === "song") {
         if (typeof refreshAllPathDiagrams === "function") refreshAllPathDiagrams();
         else renderSong();

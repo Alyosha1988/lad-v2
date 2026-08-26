@@ -440,14 +440,14 @@ const MOOD_FLAVOR = {
 
 function pathEdgeLabel(pathIdea) {
   const blob = `${pathIdea.kind || ""} ${pathIdea.why || ""} ${pathIdea.family || ""}`.toLowerCase();
-  if (/каденц|доминант|v7|напряж/.test(blob)) return "напряжение к тонике";
+  if (/каденц|доминант|v7|напряж/.test(blob)) return "к тонике";
   if (/спуск|нисход|пада|fall|andalus/.test(blob)) return "спуск";
-  if (/bossa|ii.?v|джаз|септ/.test(blob)) return "мягкое движение";
-  if (/припев|pop|i–v–vi|i-v-vi|узнаваем/.test(blob)) return "припевный свет";
-  if (/мягк|iii|относительно|лирик/.test(blob)) return "мягкое движение";
-  if (/напряж|twist|остр|конфликт/.test(blob)) return "напряжение";
+  if (/bossa|ii.?v|джаз|септ/.test(blob)) return "мягко";
+  if (/припев|pop|i–v–vi|i-v-vi|узнаваем/.test(blob)) return "припев";
+  if (/мягк|iii|относительно|лирик/.test(blob)) return "мягко";
+  if (/напряж|twist|остр|конфликт/.test(blob)) return "острее";
   if (state.mood === "dark") return "спуск";
-  if (state.mood === "tense") return "напряжение";
+  if (state.mood === "tense") return "острее";
   if (state.mood === "pulse") return "пульс";
   if (state.mood === "dream") return "дымка";
   return "ход";
@@ -543,11 +543,12 @@ function renderMapGate() {
 
 function renderNightMapSvg(nodes, start) {
   const n = Math.max(nodes.length, 1);
-  const vb = 380;
-  const cx = 190;
-  const cy = 195;
-  const rOuter = 128;
-  const rHub = 48;
+  const vb = 420;
+  const cx = 210;
+  const cy = 210;
+  const rOuter = 132;
+  const rHub = 46;
+  const rLabel = rOuter + 36;
   // Prefer mockup-like angles: TL, TR, MR, BR, BL
   const preferred = [-2.4, -0.75, 0.35, 1.35, 2.55];
 
@@ -556,19 +557,21 @@ function renderNightMapSvg(nodes, start) {
       const angle = preferred[i] ?? -Math.PI / 2 + (i * 2 * Math.PI) / n;
       const x = cx + Math.cos(angle) * rOuter;
       const y = cy + Math.sin(angle) * rOuter;
-      const mx = cx + Math.cos(angle) * (rHub + (rOuter - rHub) * 0.48);
-      const my = cy + Math.sin(angle) * (rHub + (rOuter - rHub) * 0.48);
-      const tx = mx + Math.cos(angle + Math.PI / 2) * 10;
-      const ty = my + Math.sin(angle + Math.PI / 2) * 10;
+      const mx = cx + Math.cos(angle) * (rHub + (rOuter - rHub) * 0.52);
+      const my = cy + Math.sin(angle) * (rHub + (rOuter - rHub) * 0.52);
+      const tx = mx + Math.cos(angle + Math.PI / 2) * 18;
+      const ty = my + Math.sin(angle + Math.PI / 2) * 18;
+      const lx = cx + Math.cos(angle) * rLabel;
+      const ly = cy + Math.sin(angle) * rLabel;
       return `
         <g class="nmap-ray" data-path-idx="${node.pathIdx}" role="button" tabindex="0" aria-label="${node.chord}">
           <line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" class="nmap-line"/>
           <text x="${tx}" y="${ty}" text-anchor="middle" class="nmap-edge">${node.edge}</text>
           <circle cx="${x}" cy="${y}" r="30" class="nmap-node-glow"/>
           <circle cx="${x}" cy="${y}" r="24" class="nmap-node"/>
-          <image href="icons/map_node_landscape.png" x="${x - 11}" y="${y - 18}" width="22" height="22" preserveAspectRatio="xMidYMid slice"/>
-          <text x="${x}" y="${y + 12}" text-anchor="middle" class="nmap-chord">${node.chord}</text>
-          <text x="${x}" y="${y + 38}" text-anchor="middle" class="nmap-deg">${node.degree}</text>
+          <image href="icons/map_node_landscape.png" x="${x - 10}" y="${y - 14}" width="20" height="20" preserveAspectRatio="xMidYMid slice"/>
+          <text x="${x}" y="${y + 14}" text-anchor="middle" class="nmap-chord">${node.chord}</text>
+          <text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" class="nmap-deg">${node.degree}</text>
         </g>`;
     })
     .join("");

@@ -1589,3 +1589,12 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   color: var(--ink-soft);
   line-height: 1.4;
 }
+
+#openDegreesMap,
+button[data-open-degrees].btn-glow {
+  margin-bottom: 0.85rem;
+}
+.theory-passport-actions .btn-tiny {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}

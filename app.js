@@ -776,10 +776,12 @@ function renderMap() {
     </div>
     <div class="chip-row" style="margin:0.55rem 0 0.85rem">
       <span class="chip">дом ${state.start}</span>
-      <button type="button" class="chip chip-btn" data-open-degrees>Ступени от ${state.start}</button>
       <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
+    <button type="button" class="btn btn-glow btn-block" data-open-degrees id="openDegreesMap">
+      Ступени от ${state.start}
+    </button>
 
     <div class="nmap-board">
       ${renderNightMapSvg(nodes, state.start)}

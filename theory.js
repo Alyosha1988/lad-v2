@@ -1117,7 +1117,7 @@
   }
 
   function renderDegreesLink(label = "Ступени") {
-    return `<button type="button" class="btn btn-ghost btn-tiny" data-open-degrees>${escapeHtml(label)}</button>`;
+    return `<button type="button" class="btn btn-glow btn-tiny" data-open-degrees>${escapeHtml(label)}</button>`;
   }
 
   global.LadTheory = {

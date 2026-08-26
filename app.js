@@ -41,7 +41,7 @@ const SONG_SLOTS = [
 ];
 
 const state = {
-  screen: "mood", // mood | start | discover | map | path | song | plus | glossary
+  screen: "mood", // mood | start | discover | map | path | song | plus | glossary | degrees
   mood: null,
   start: null,
   paths: [],
@@ -60,6 +60,7 @@ const state = {
   },
   returnFromPlus: "mood",
   returnFromGlossary: "mood",
+  returnFromDegrees: "mood",
   glossaryQuery: "",
   glossaryFocus: null,
   pdfPreview: false,
@@ -87,7 +88,8 @@ function setScreen(name) {
           name === "start" ||
           name === "discover" ||
           name === "plus" ||
-          name === "glossary")) ||
+          name === "glossary" ||
+          name === "degrees")) ||
       (nav === "map" && (name === "map" || name === "path")) ||
       (nav === "song" && name === "song");
     tab.classList.toggle("is-active", active);
@@ -108,9 +110,15 @@ function openGlossary(fromScreen, termId) {
   setScreen("glossary");
 }
 
+function openDegrees(fromScreen) {
+  state.returnFromDegrees = fromScreen || state.screen;
+  setScreen("degrees");
+}
+
 function goBack() {
   if (state.screen === "plus") setScreen(state.returnFromPlus || "mood");
   else if (state.screen === "glossary") setScreen(state.returnFromGlossary || "mood");
+  else if (state.screen === "degrees") setScreen(state.returnFromDegrees || "mood");
   else if (state.screen === "start") setScreen("mood");
   else if (state.screen === "discover") setScreen("start");
   else if (state.screen === "map") setScreen(state.start ? "start" : "mood");
@@ -131,6 +139,9 @@ function bindTheoryHooks(root) {
     btn.addEventListener("click", () => {
       openGlossary(state.screen, btn.dataset.termId || null);
     });
+  });
+  root.querySelectorAll("[data-open-degrees]").forEach((btn) => {
+    btn.addEventListener("click", () => openDegrees(state.screen));
   });
   root.querySelectorAll("[data-set-voice]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -167,6 +178,7 @@ function render() {
   else if (state.screen === "song") renderSong();
   else if (state.screen === "plus") renderLadPlus();
   else if (state.screen === "glossary") renderGlossary();
+  else if (state.screen === "degrees") renderDegrees();
 }
 
 function renderLadPlus() {
@@ -206,6 +218,22 @@ function renderGlossary() {
       },
       onBack: () => setScreen(state.returnFromGlossary || "mood"),
     });
+    bindTheoryHooks(stage);
+  }
+}
+
+function renderDegrees() {
+  const symbol = state.start || "";
+  stage.innerHTML =
+    typeof LadTheory !== "undefined"
+      ? LadTheory.renderDegreesScreen({ variant: "night", symbol })
+      : `<p class="hand-note">Раздел ступеней не загружен.</p>`;
+  if (typeof LadTheory !== "undefined") {
+    LadTheory.bindDegreesScreen(stage, {
+      onChange: () => renderDegrees(),
+      onBack: () => setScreen(state.returnFromDegrees || "start"),
+    });
+    bindTheoryHooks(stage);
   }
 }
 
@@ -746,6 +774,12 @@ function renderMap() {
       </div>
       <button type="button" class="mood-pill" id="mapMood">${mood?.title || ""} ▾</button>
     </div>
+    <div class="chip-row" style="margin:0.55rem 0 0.85rem">
+      <span class="chip">дом ${state.start}</span>
+      <button type="button" class="chip chip-btn" data-open-degrees>Ступени от ${state.start}</button>
+      <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
+      <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
+    </div>
 
     <div class="nmap-board">
       ${renderNightMapSvg(nodes, state.start)}
@@ -860,6 +894,8 @@ function renderPath() {
     <div class="chip-row">
       <span class="chip">${mood?.title}</span>
       <span class="chip">${state.start}</span>
+      <button type="button" class="chip chip-btn" data-open-degrees>Ступени</button>
+      <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
     ${passportHtml}
@@ -947,6 +983,8 @@ function renderSong() {
       ${mood ? `<span class="chip">${mood.title}</span>` : ""}
       ${state.start ? `<span class="chip">центр ${state.start}</span>` : ""}
       <span class="chip">${filled.length} / ${SONG_SLOTS.length}</span>
+      ${state.start ? `<button type="button" class="chip chip-btn" data-open-degrees>Ступени</button>` : ""}
+      <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
     ${

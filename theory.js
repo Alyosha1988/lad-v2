@@ -645,7 +645,10 @@
       <section class="theory-passport ${plain ? "is-plain" : "is-pro"}">
         <div class="theory-passport-head">
           <p class="theory-kicker">${escapeHtml(title)}</p>
-          ${renderGlossaryLink("Словарь")}
+          <div class="theory-passport-actions">
+            ${renderDegreesLink("Ступени")}
+            ${renderGlossaryLink("Словарь")}
+          </div>
         </div>
         ${renderVoiceToggleMini()}
         ${
@@ -733,7 +736,10 @@
       <section class="theory-passport theory-center ${plain ? "is-plain" : "is-pro"}">
         <div class="theory-passport-head">
           <p class="theory-kicker">${plain ? "Дом гармонии" : "Тональный центр"}</p>
-          ${renderGlossaryLink("Словарь")}
+          <div class="theory-passport-actions">
+            ${renderDegreesLink("Ступени")}
+            ${renderGlossaryLink("Словарь")}
+          </div>
         </div>
         ${renderVoiceToggleMini()}
         <p class="theory-degrees">${escapeHtml(symbol)}</p>
@@ -862,6 +868,258 @@
     };
   }
 
+
+  /* ---------- ступени от выбранного аккорда ---------- */
+
+  const DEG_NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const DEG_NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  const DEG_ALIASES = {
+    Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#",
+    "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#",
+  };
+
+  function degParseChord(raw) {
+    const m = String(raw || "").trim().match(/^([A-G][b#]?)(.*)$/i);
+    if (!m) return null;
+    let root = m[1][0].toUpperCase() + m[1].slice(1);
+    if (DEG_ALIASES[root]) root = DEG_ALIASES[root];
+    const quality = m[2] || "";
+    const isMinor =
+      /(^m(?!aj)|min|minor|m7|m9|m11|m6|sus.*m)/i.test(quality) ||
+      quality === "m" ||
+      /dim|ø|m7b5/i.test(quality);
+    const isDom7 =
+      /(^|[^a-z])(7|9|13|alt)/i.test(quality) &&
+      !/(maj|m7|m9|m11|dim|ø)/i.test(quality) &&
+      !/^m/.test(quality);
+    return { label: String(raw).trim(), root, quality, isMinor, isDom7 };
+  }
+
+  function degNoteIndex(note) {
+    const n = DEG_ALIASES[note] || note;
+    let i = DEG_NOTES_SHARP.indexOf(n);
+    if (i >= 0) return i;
+    return DEG_NOTES_FLAT.indexOf(note);
+  }
+
+  function degPreferFlats(tonic, minor) {
+    if (["F", "Bb", "Eb", "Ab", "Db", "Gb"].includes(tonic)) return true;
+    if (minor && ["D", "G", "C", "F"].includes(tonic)) return true;
+    return false;
+  }
+
+  function degSpell(note, flats) {
+    const i = degNoteIndex(note);
+    if (i < 0) return note;
+    return flats ? DEG_NOTES_FLAT[i] : DEG_NOTES_SHARP[i];
+  }
+
+  function degCh(root, quality, flats) {
+    return `${degSpell(root, flats)}${quality}`;
+  }
+
+  function degTrans(root, semi, flats) {
+    const i = degNoteIndex(root);
+    if (i < 0) return root;
+    return degSpell(DEG_NOTES_SHARP[(i + semi + 120) % 12], flats);
+  }
+
+  /**
+   * Сетка ступеней зависит только от выбранного аккорда:
+   * минорный символ → минорный взгляд; иначе мажорный (для доминантсепт — мажор с доминантной краской).
+   */
+  function buildDegreeGuide(symbol) {
+    const parsed = degParseChord(symbol);
+    if (!parsed) return null;
+    const minor = parsed.isMinor;
+    const flats = degPreferFlats(parsed.root, minor);
+    const T = parsed.root;
+    const home = degCh(T, parsed.quality || (minor ? "m" : ""), flats);
+    const view = minor ? "minor" : parsed.isDom7 ? "mixo" : "major";
+
+    const rows = minor
+      ? [
+          {
+            degree: "I",
+            chord: degCh(T, "m", flats),
+            plain: "Дом — куда фраза хочет вернуться.",
+            pro: "Тоника минора (эолийская / гармоническая опора).",
+          },
+          {
+            degree: "II",
+            chord: degCh(degTrans(T, 2, flats), "m7b5", flats),
+            plain: "Хрупкий сосед — часто готовит тягу к дому.",
+            pro: "II ступень минора (полууменьшённый); типичен в оборотах II–V.",
+          },
+          {
+            degree: "bIII",
+            chord: degCh(degTrans(T, 3, flats), "", flats),
+            plain: "Тёплый мажорный свет над минорным домом.",
+            pro: "bIII — мажорная медианта относительно минорной тоники.",
+          },
+          {
+            degree: "IV",
+            chord: degCh(degTrans(T, 5, flats), "m", flats),
+            plain: "Шаг в сторону от дома, ещё внутри той же краски.",
+            pro: "Субдоминанта минора (iv).",
+          },
+          {
+            degree: "V",
+            chord: degCh(degTrans(T, 7, flats), "7", flats),
+            plain: "Тяга домой — самый заметный «вопрос» перед ответом.",
+            pro: "Доминанта (часто гармонический минор: V7 → i).",
+          },
+          {
+            degree: "bVI",
+            chord: degCh(degTrans(T, 8, flats), "", flats),
+            plain: "Ещё одна тёплая краска, чуть «киношная».",
+            pro: "bVI — мажорная субмедианта в миноре.",
+          },
+          {
+            degree: "bVII",
+            chord: degCh(degTrans(T, 10, flats), "", flats),
+            plain: "Пониженная VII — рок/соул/фолк-поворот без острого V.",
+            pro: "bVII натурального минора; модальный и заимствованный оборот.",
+          },
+        ]
+      : [
+          {
+            degree: "I",
+            chord: degCh(T, parsed.isDom7 ? "7" : "", flats),
+            plain: parsed.isDom7
+              ? "Дом с доминантной краской — звучит «блюзовее», но это всё ещё центр."
+              : "Дом — светлая точка покоя.",
+            pro: parsed.isDom7
+              ? "Тоника с доминантовой окраской (миксолидийский взгляд)."
+              : "Тоника мажора (ионийская опора).",
+          },
+          {
+            degree: "II",
+            chord: degCh(degTrans(T, 2, flats), "m", flats),
+            plain: "Мягкий сосед — часто ведёт к тяге домой.",
+            pro: "II ступень мажора (ii); типична в II–V–I.",
+          },
+          {
+            degree: "III",
+            chord: degCh(degTrans(T, 3, flats), "m", flats),
+            plain: "Родственный минорный оттенок рядом с домом.",
+            pro: "III ступень (iii) — медианта мажора.",
+          },
+          {
+            degree: "IV",
+            chord: degCh(degTrans(T, 5, flats), "", flats),
+            plain: "Шаг в сторону — открывает фразу, не ломая центр.",
+            pro: "Субдоминанта (IV).",
+          },
+          {
+            degree: "V",
+            chord: degCh(degTrans(T, 7, flats), "7", flats),
+            plain: "Тяга домой — самый ясный «вопрос».",
+            pro: "Доминанта (V7) — автентическое тяготение к I.",
+          },
+          {
+            degree: "VI",
+            chord: degCh(degTrans(T, 9, flats), "m", flats),
+            plain: "Относительный минор — та же семья, другая тень.",
+            pro: "VI ступень (vi) — относительный минор.",
+          },
+          {
+            degree: "bVII",
+            chord: degCh(degTrans(T, 10, flats), "", flats),
+            plain: "Пониженная VII из соседней краски — частый «рок/поп» поворот.",
+            pro: "bVII — модальное заимствование / миксолидийская краска.",
+          },
+        ];
+
+    const viewPlain = minor
+      ? "Взгляд выбран по аккорду: минорный дом."
+      : parsed.isDom7
+        ? "Взгляд выбран по аккорду: мажорный дом с доминантной краской."
+        : "Взгляд выбран по аккорду: мажорный дом.";
+    const viewPro = minor
+      ? "Сетка построена от минорной тоники (качество стартового аккорда)."
+      : parsed.isDom7
+        ? "Сетка от мажорной тоники с миксолидийской/доминантовой окраской центра."
+        : "Сетка построена от мажорной тоники (качество стартового аккорда).";
+
+    return {
+      symbol: parsed.label,
+      home,
+      root: degSpell(T, flats),
+      view,
+      viewPlain,
+      viewPro,
+      rows,
+    };
+  }
+
+  function renderDegreesScreen(opts = {}) {
+    const symbol = opts.symbol || "";
+    const guide = buildDegreeGuide(symbol);
+    const variant = opts.variant || "night";
+    const plain = getVoice() === "plain";
+    if (!guide) {
+      return `
+        <section class="degrees-screen ${variant === "paper" ? "is-paper" : ""}">
+          <p class="kicker">Ступени</p>
+          <h1 class="h1">Сначала выберите аккорд-дом</h1>
+          <p class="hand-note">Сетка ступеней строится только от выбранного стартового аккорда.</p>
+          <div class="actions">
+            <button type="button" class="btn btn-ghost" data-degrees-back>Назад</button>
+          </div>
+        </section>`;
+    }
+
+    const rowsHtml = guide.rows
+      .map((r) => {
+        const text = plain ? r.plain : r.pro;
+        const isFlat = /^b/i.test(r.degree);
+        return `
+          <article class="degree-row ${isFlat ? "is-flat" : ""}">
+            <div class="degree-row__deg">${escapeHtml(r.degree)}</div>
+            <div class="degree-row__body">
+              <p class="degree-row__chord">${escapeHtml(r.chord)}</p>
+              <p class="degree-row__why">${escapeHtml(text)}</p>
+            </div>
+          </article>`;
+      })
+      .join("");
+
+    return `
+      <section class="degrees-screen ${variant === "paper" ? "is-paper" : ""}">
+        <p class="kicker">Ступени</p>
+        <h1 class="h1">Ступени от ${escapeHtml(guide.symbol)}</h1>
+        <p class="hand-note">${escapeHtml(plain ? guide.viewPlain : guide.viewPro)}</p>
+        ${renderVoiceToggleMini()}
+        <div class="chip-row">
+          <span class="chip">дом ${escapeHtml(guide.home)}</span>
+          <button type="button" class="chip chip-btn" data-open-glossary data-term-id="flat-degree">Что значит b</button>
+          <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
+        </div>
+        <div class="degree-list">
+          ${rowsHtml}
+        </div>
+        <p class="theory-plain-hint">Римские цифры — адреса относительно дома (I). Буква b — бемоль (на полтона ниже).</p>
+        <div class="actions">
+          <button type="button" class="btn btn-ghost" data-degrees-back>Назад</button>
+        </div>
+      </section>`;
+  }
+
+  function bindDegreesScreen(root, hooks = {}) {
+    root.querySelectorAll("[data-set-voice]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setVoice(btn.dataset.setVoice);
+        hooks.onChange?.();
+      });
+    });
+    root.querySelector("[data-degrees-back]")?.addEventListener("click", () => hooks.onBack?.());
+  }
+
+  function renderDegreesLink(label = "Ступени") {
+    return `<button type="button" class="btn btn-ghost btn-tiny" data-open-degrees>${escapeHtml(label)}</button>`;
+  }
+
   global.LadTheory = {
     GLOSSARY,
     GLOSSARY_ENTRIES,
@@ -896,5 +1154,9 @@
     bindGlossaryScreen,
     renderGlossaryLink,
     linkifyTheoryTerms,
+    buildDegreeGuide,
+    renderDegreesScreen,
+    bindDegreesScreen,
+    renderDegreesLink,
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -249,15 +249,8 @@ function bumpQueuePriority(key, priority) {
 }
 
 function preemptLowPriorityLoads() {
-  // освобождаем слоты: рвём активные низкоприоритетные fetch
-  for (const [key, meta] of activeJobs) {
-    if (meta.priority >= 80) continue;
-    if (meta.controller) {
-      try {
-        meta.controller.abort();
-      } catch (_) {}
-    }
-  }
+  // Не abort'им сеть (ERR_ABORTED в консоли) — только поднимаем приоритет в очереди.
+  // Слоты для play резервируются в pumpLoadQueue.
 }
 
 function pumpLoadQueue() {
@@ -271,7 +264,6 @@ function pumpLoadQueue() {
     const limit = highWaiting ? MAX_CONCURRENT_LOADS : Math.max(2, MAX_CONCURRENT_LOADS - reservedForHigh);
 
     if (activeLoads >= (highWaiting ? MAX_CONCURRENT_LOADS : limit)) {
-      if (highWaiting && activeLoads >= MAX_CONCURRENT_LOADS) preemptLowPriorityLoads();
       break;
     }
 

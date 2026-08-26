@@ -1359,11 +1359,13 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   letter-spacing: 0.04em;
   color: var(--accent);
   line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mood-card .mood-mode-line {
   margin-top: var(--space-1);
-  max-width: 14ch;
+  max-width: 22ch;
   margin-left: auto;
   margin-right: auto;
 }

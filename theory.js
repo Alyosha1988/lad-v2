@@ -438,7 +438,11 @@
     if (!text) return "";
     return String(text)
       .replace(/[–—−]/g, "-")
-      .replace(/\b(b|#)?([ivx]+)\b/gi, (_, accidental, rom) => `${accidental || ""}${rom.toUpperCase()}`)
+      // accidental всегда строчная b/#, римские — заглавные (не трогаем CSS uppercase)
+      .replace(/\b(b|#)?([ivx]+)\b/gi, (_, accidental, rom) => {
+        const acc = accidental ? String(accidental).toLowerCase() : "";
+        return `${acc}${rom.toUpperCase()}`;
+      })
       .replace(/-/g, "–");
   }
 
@@ -450,6 +454,69 @@
     const matches = normalized.match(re) || [];
     if (!matches.length) return "";
     return matches.sort((a, b) => b.length - a.length)[0].replace(/\s+/g, "");
+  }
+
+  function parseChordRoot(sym) {
+    const m = String(sym || "")
+      .trim()
+      .match(/^([A-G][b#]?)/i);
+    return m ? m[1][0].toUpperCase() + m[1].slice(1) : null;
+  }
+
+  function normalizeDegreeToken(token) {
+    const m = String(token || "")
+      .trim()
+      .match(/^(b|#)?([ivx]+)/i);
+    if (!m) return "";
+    const acc = m[1] ? m[1].toLowerCase() : "";
+    return `${acc}${m[2].toUpperCase()}`;
+  }
+
+  /** Токены ступеней без ложных подстрок (VII ≠ V). */
+  function degreeTokens(degrees) {
+    return String(degrees || "")
+      .replace(/[–—−]/g, "-")
+      .split(/[-/\s]+/)
+      .map((s) => s.replace(/(maj7|m7|sus4|dim|ø|alt|\d+)/gi, ""))
+      .map(normalizeDegreeToken)
+      .filter(Boolean);
+  }
+
+  function hasExactDegree(degrees, wanted) {
+    const want = normalizeDegreeToken(wanted);
+    return degreeTokens(degrees).includes(want);
+  }
+
+  function chordToDegreeLabel(home, chord) {
+    const hr = parseChordRoot(home);
+    const cr = parseChordRoot(chord);
+    if (!hr || !cr || typeof noteIndex !== "function") return null;
+    const hi = noteIndex(hr);
+    const ci = noteIndex(cr);
+    if (hi < 0 || ci < 0) return null;
+    const st = (ci - hi + 12) % 12;
+    const TABLE = {
+      0: "I",
+      1: "bII",
+      2: "II",
+      3: "bIII",
+      4: "III",
+      5: "IV",
+      6: "#IV",
+      7: "V",
+      8: "bVI",
+      9: "VI",
+      10: "bVII",
+      11: "VII",
+    };
+    return TABLE[st] || null;
+  }
+
+  function deriveDegreeSequence(home, path) {
+    if (!home || !path?.length) return "";
+    const parts = path.map((c) => chordToDegreeLabel(home, c));
+    if (parts.some((p) => !p)) return "";
+    return parts.join("–");
   }
 
   function moodModeInfo(moodId) {
@@ -474,35 +541,51 @@
     return EDGE_THEORY[label] || EDGE_THEORY["ход"];
   }
 
-  function guessDegrees(pathIdea) {
+  function guessDegrees(pathIdea, startSymbol) {
     const blob = [pathIdea?.kind, pathIdea?.why, pathIdea?.family].filter(Boolean).join(" · ");
     const fromText = extractDegreeSequence(blob);
     if (fromText) return fromText;
-    const n = (pathIdea?.path || []).length;
-    if (n === 3) return "I–IV–V";
-    if (n === 4) return "I–V–VI–IV";
-    if (n >= 5) return "I–…";
-    return "I";
+    const path = pathIdea?.path || [];
+    const home = startSymbol || path[0];
+    const derived = deriveDegreeSequence(home, path);
+    if (derived) return derived;
+    if (path.length >= 2) return "—";
+    return path.length ? "I" : "—";
   }
 
   function guessFunctions(degrees, moodId) {
-    const d = degrees.toUpperCase();
-    if (/V/.test(d) && /I/.test(d)) {
+    const hasI = hasExactDegree(degrees, "I");
+    const hasV = hasExactDegree(degrees, "V");
+    const hasIV = hasExactDegree(degrees, "IV");
+    const hasII = hasExactDegree(degrees, "II");
+    const modalBorrow =
+      hasExactDegree(degrees, "bVII") ||
+      hasExactDegree(degrees, "bVI") ||
+      hasExactDegree(degrees, "bIII") ||
+      hasExactDegree(degrees, "bII");
+
+    if (hasII && hasV) {
+      return {
+        pro: "Субдоминантовая подготовка → доминанта (оборот II–V)",
+        plain: "Сначала подготовка, потом тяга к дому — классический «разгон» к ответу.",
+      };
+    }
+    if (hasV && hasI) {
       return {
         pro: "Тоника → доминанта (автентическое тяготение)",
         plain: "В ходе есть тяга назад к дому — поэтому фраза звучит собранно.",
       };
     }
-    if (/IV/.test(d) && /I/.test(d) && !/V/.test(d)) {
+    if (hasIV && hasI && !hasV) {
       return {
         pro: "Плагальное движение (субдоминанта → тоника)",
         plain: "Мягкий шаг в сторону и возврат домой — без острого рывка.",
       };
     }
-    if (/II/.test(d) && /V/.test(d)) {
+    if (modalBorrow) {
       return {
-        pro: "Субдоминантовая подготовка → доминанта (оборот II–V)",
-        plain: "Сначала подготовка, потом тяга к дому — классический «разгон» к ответу.",
+        pro: "Модальный / минорный план с заимствованиями (bIII, bVI, bVII)",
+        plain: "Краска соседних ступеней: ход держится настроением, не только «доминантным» рывком.",
       };
     }
     if (moodId === "dark" || moodId === "tense") {
@@ -525,22 +608,35 @@
 
   function guessCadence(degrees, pathIdea) {
     const blob = `${degrees} ${pathIdea?.kind || ""} ${pathIdea?.why || ""}`.toLowerCase();
-    if (/v7|доминант|каденц|auth/.test(blob) || /V/.test(degrees)) {
+    const hasV = hasExactDegree(degrees, "V");
+    const hasI = hasExactDegree(degrees, "I");
+    const hasIV = hasExactDegree(degrees, "IV");
+    if (/v7|доминант|auth/.test(blob) || (hasV && hasI)) {
       return {
         pro: "Автентическая каденция (V→I) или её подготовка",
         plain: "Финал как «вопрос → ответ»: после напряжения хочется услышать дом.",
       };
     }
-    if (/плаг|iv–i|amen|gospel/.test(blob)) {
+    if (/плаг|amen|gospel/.test(blob) || (hasIV && hasI && !hasV)) {
       return {
         pro: "Плагальная каденция (IV→I)",
         plain: "Мягкое «аминь»: возврат домой без резкого толчка.",
       };
     }
-    if (/half|половин/.test(blob)) {
+    if (/half|половин/.test(blob) || (hasV && !hasI)) {
       return {
         pro: "Половинная каденция (остановка на доминанте)",
         plain: "Остановка на полуслове: фраза зависла перед ответом.",
+      };
+    }
+    if (
+      hasExactDegree(degrees, "bVII") ||
+      hasExactDegree(degrees, "bVI") ||
+      hasExactDegree(degrees, "bIII")
+    ) {
+      return {
+        pro: "Модальное закрепление / открытый оборот",
+        plain: "Конец скорее в краске лада, чем в жёстком «вопрос–ответ».",
       };
     }
     return {
@@ -580,7 +676,7 @@
     const moodId = opts.moodId || "dark";
     const start = opts.start || pathIdea?.path?.[0] || "I";
     const mode = moodModeInfo(moodId);
-    const degrees = guessDegrees(pathIdea);
+    const degrees = guessDegrees(pathIdea, start);
     const functions = guessFunctions(degrees, moodId);
     const cadence = guessCadence(degrees, pathIdea);
     const leading = voiceLeadingNote(pathIdea);
@@ -900,7 +996,8 @@
 
   function degPreferFlats(tonic, minor) {
     if (["F", "Bb", "Eb", "Ab", "Db", "Gb"].includes(tonic)) return true;
-    if (minor && ["D", "G", "C", "F"].includes(tonic)) return true;
+    // Am и др. миноры без диезов в ключе — бемольная орфография
+    if (minor && !["E", "B", "F#", "C#", "G#", "D#"].includes(tonic)) return true;
     return false;
   }
 

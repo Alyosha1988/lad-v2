@@ -79,12 +79,14 @@ function noteIndex(note) {
 }
 
 function preferFlats(tonic, mode) {
-  const flatTonics = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "C", "D", "G", "A"]);
-  // Heuristic: F and flat-key signatures + when tonic is Bb etc.
-  const sharpish = new Set(["G", "D", "A", "E", "B", "F#"]);
-  if (tonic === "F" || tonic === "Bb" || tonic === "Eb" || tonic === "Ab" || tonic === "Db") return true;
-  if (mode === "minor" && ["D", "G", "C", "F"].includes(tonic)) return true;
-  if (sharpish.has(tonic) && mode === "major") return false;
+  const flatMajors = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb"]);
+  // Миноры с диезами в ключе: E, B, F#, …
+  const sharpMinors = new Set(["E", "B", "F#", "C#", "G#", "D#"]);
+  const sharpMajors = new Set(["G", "D", "A", "E", "B", "F#", "C#"]);
+  if (flatMajors.has(tonic)) return true;
+  // Am, Dm, Gm, Cm и др. — бемольная орфография (Bb вместо A#)
+  if (mode === "minor") return !sharpMinors.has(tonic);
+  if (sharpMajors.has(tonic)) return false;
   return false;
 }
 

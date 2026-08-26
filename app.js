@@ -665,7 +665,7 @@ function renderMapGate() {
           </defs>
           <circle cx="140" cy="90" r="40" fill="url(#gGlow)"/>
           <circle cx="140" cy="90" r="22" fill="#1a120c" stroke="#f0a35a" stroke-width="2"/>
-          <text x="140" y="94" text-anchor="middle" font-size="14" font-family="Georgia,serif" fill="#f7e7d0">${mood ? "·" : "?"}</text>
+          <text x="140" y="94" text-anchor="middle" font-size="15" font-family="Georgia,serif" fill="#f7e7d0">${mood ? "·" : "♪"}</text>
           ${[0, 72, 144, 216, 288]
             .map((deg) => {
               const a = ((deg - 90) * Math.PI) / 180;
@@ -688,7 +688,7 @@ function renderMapGate() {
           ).join("")}
         </div>`
           : `
-        <p class="map-lead soft">Сначала выбери настроение — карта окрасит связи.</p>
+        <p class="map-lead soft">Сначала выберите настроение в комнате — затем аккорд-дом.</p>
         <div class="actions">
           <button type="button" class="btn btn-glow" id="gateToMood">В комнату</button>
         </div>`

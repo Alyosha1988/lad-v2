@@ -896,9 +896,11 @@ function renderPath() {
     <div class="chip-row">
       <span class="chip">${mood?.title}</span>
       <span class="chip">${state.start}</span>
-      <button type="button" class="chip chip-btn" data-open-degrees>Ступени</button>
       <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
+    </div>
+    <div class="actions" style="margin:0.55rem 0 0.85rem">
+      <button type="button" class="btn btn-glow" data-open-degrees>Ступени от ${state.start}</button>
     </div>
     ${passportHtml}
     <div class="panel">

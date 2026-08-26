@@ -271,8 +271,8 @@
         <p class="hand-note">По умолчанию — простыми словами: зачем ход работает. Теория — в карточках и по тапу. Можно включить голос музыканта.</p>
 
         <div class="voice-toggle" role="group" aria-label="Голос комментариев">
-          <button type="button" class="chip chip-btn ${voice === "plain" ? "is-on" : ""}" data-voice="plain">Простыми словами</button>
-          <button type="button" class="chip chip-btn ${voice === "pro" ? "is-on" : ""}" data-voice="pro">Как у музыкантов</button>
+          <button type="button" class="chip chip-btn ${voice === "plain" ? "is-on" : ""}" data-set-voice="plain">Простыми словами</button>
+          <button type="button" class="chip chip-btn ${voice === "pro" ? "is-on" : ""}" data-set-voice="pro">Как у музыкантов</button>
         </div>
 
         <label class="glossary-search">
@@ -314,12 +314,7 @@
   }
 
   function bindGlossaryScreen(root, hooks = {}) {
-    root.querySelectorAll("[data-voice]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        setVoice(btn.dataset.voice);
-        hooks.onChange?.({ voice: getVoice(), query: root.querySelector("#glossaryQuery")?.value || "" });
-      });
-    });
+    // голос — делегированием в app.js
     const input = root.querySelector("#glossaryQuery");
     let timer = null;
     input?.addEventListener("input", () => {
@@ -329,6 +324,7 @@
       }, 160);
     });
     root.querySelector("[data-glossary-back]")?.addEventListener("click", () => hooks.onBack?.());
+    if (hooks.onChange) root.__ladGlossaryOnChange = hooks.onChange;
   }
 
   function renderGlossaryLink(label = "Словарь") {
@@ -1112,15 +1108,9 @@
   }
 
   function bindDegreesScreen(root, hooks = {}) {
-    root.querySelectorAll("[data-set-voice]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        setVoice(btn.dataset.setVoice);
-        hooks.onChange?.();
-      });
-    });
+    // голос обрабатывается делегированием в app.js — здесь только «Назад»
     root.querySelector("[data-degrees-back]")?.addEventListener("click", () => hooks.onBack?.());
+    if (hooks.onChange) root.__ladDegreesOnChange = hooks.onChange;
   }
 
   function renderDegreesLink(label = "Ступени") {

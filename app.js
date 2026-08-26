@@ -118,8 +118,14 @@ function openDegrees(fromScreen) {
 function goBack() {
   if (state.screen === "plus") setScreen(state.returnFromPlus || "mood");
   else if (state.screen === "glossary") setScreen(state.returnFromGlossary || "mood");
-  else if (state.screen === "degrees") setScreen(state.returnFromDegrees || "mood");
-  else if (state.screen === "start") setScreen("mood");
+  else if (state.screen === "degrees") {
+    const back = state.returnFromDegrees;
+    if (back && back !== "degrees" && back !== "start") setScreen(back);
+    else if (state.start && state.mood) {
+      loadPaths();
+      setScreen("map");
+    } else setScreen("mood");
+  } else if (state.screen === "start") setScreen("mood");
   else if (state.screen === "discover") setScreen("start");
   else if (state.screen === "map") setScreen(state.start ? "start" : "mood");
   else if (state.screen === "path") setScreen("map");
@@ -143,24 +149,37 @@ function bindTheoryHooks(root) {
   root.querySelectorAll("[data-open-degrees]").forEach((btn) => {
     btn.addEventListener("click", () => openDegrees(state.screen));
   });
-  root.querySelectorAll("[data-set-voice]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+  // голос: только через document delegation ниже — не навешиваем здесь
+}
+
+/** Единый обработчик голоса: никогда не уводит со ступеней/словаря. */
+function bindVoiceDelegation() {
+  if (document.__ladVoiceBound) return;
+  document.__ladVoiceBound = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest("[data-set-voice], [data-voice]");
+      if (!btn) return;
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       if (typeof LadTheory === "undefined") return;
-      LadTheory.setVoice(btn.dataset.setVoice);
-      // остаёмся на ступенях / словаре / текущем экране
-      if (state.screen === "degrees") {
-        renderDegrees();
-        return;
-      }
-      if (state.screen === "glossary") {
-        renderGlossary();
-        return;
-      }
-      render();
-    });
-  });
+      const voice = btn.dataset.setVoice || btn.dataset.voice;
+      if (voice !== "plain" && voice !== "pro") return;
+      LadTheory.setVoice(voice);
+      // откладываем перерисовку: иначе на таче «призрачный» click попадает в DOM после replace
+      const screen = state.screen;
+      requestAnimationFrame(() => {
+        if (state.screen !== screen) return;
+        if (screen === "degrees") renderDegrees();
+        else if (screen === "glossary") renderGlossary();
+        else if (screen === "plus") renderLadPlus();
+        else render();
+      });
+    },
+    true
+  );
 }
 
 function loadPaths() {
@@ -242,7 +261,7 @@ function renderDegrees() {
   if (typeof LadTheory !== "undefined") {
     LadTheory.bindDegreesScreen(stage, {
       onChange: () => renderDegrees(),
-      onBack: () => setScreen(state.returnFromDegrees || "start"),
+      onBack: () => goBack(),
     });
     bindTheoryHooks(stage);
   }
@@ -1220,4 +1239,5 @@ document.querySelectorAll("[data-instrument]").forEach((btn) => {
 });
 
 restoreSavedSong();
+bindVoiceDelegation();
 setScreen("mood");

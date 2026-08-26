@@ -92,8 +92,19 @@
   function upperRomans(text) {
     if (!text) return "";
     return String(text)
-      .replace(/\b(b?)([ivx]+)\b/gi, (_, flat, rom) => `${flat || ""}${rom.toUpperCase()}`)
-      .replace(/–/g, "–");
+      .replace(/[–—−]/g, "-")
+      .replace(/\b(b|#)?([ivx]+)\b/gi, (_, accidental, rom) => `${accidental || ""}${rom.toUpperCase()}`)
+      .replace(/-/g, "–");
+  }
+
+  function extractDegreeSequence(text) {
+    if (!text) return "";
+    const normalized = upperRomans(text);
+    const re =
+      /[b#]?[IVX]+(?:maj7|m7|m|7|sus4|dim|ø|alt)?(?:\s*[–\/]\s*[b#]?[IVX]+(?:maj7|m7|m|7|sus4|dim|ø|alt)?){1,11}/g;
+    const matches = normalized.match(re) || [];
+    if (!matches.length) return "";
+    return matches.sort((a, b) => b.length - a.length)[0].replace(/\s+/g, "");
   }
 
   function moodModeInfo(moodId) {
@@ -105,13 +116,14 @@
   }
 
   function guessDegrees(pathIdea) {
-    const kind = upperRomans(pathIdea?.kind || pathIdea?.family || "");
-    const m = kind.match(/([b#]?[IVX]+(?:maj7|m7|m|7|sus4|dim|ø)?(?:[–\-\/][b#]?[IVX]+(?:maj7|m7|m|7|sus4|dim|ø)?)*)/i);
-    if (m) return upperRomans(m[1].replace(/-/g, "–").replace(/\//g, "–"));
+    const blob = [pathIdea?.kind, pathIdea?.why, pathIdea?.family].filter(Boolean).join(" · ");
+    const fromText = extractDegreeSequence(blob);
+    if (fromText) return fromText;
     const n = (pathIdea?.path || []).length;
     if (n === 3) return "I–IV–V";
     if (n === 4) return "I–V–VI–IV";
-    return "I–…";
+    if (n >= 5) return "I–…";
+    return "I";
   }
 
   function guessFunctions(degrees, moodId) {
@@ -150,14 +162,14 @@
     const degrees = guessDegrees(pathIdea);
     const functions = guessFunctions(degrees, moodId);
     const cadence = guessCadence(degrees, pathIdea);
+    const summaryRaw =
+      pathIdea?.why || `Оборот ${degrees} в ладовой опоре «${mode.modeLine}».`;
     const brief = {
       degrees,
       functions,
       modeLine: mode.modeLine,
       center: `Тональный центр: ${start}`,
-      summary:
-        pathIdea?.why ||
-        `Оборот ${degrees} в ладовой опоре «${mode.modeLine}».`,
+      summary: upperRomans(summaryRaw),
     };
     const full = {
       ...brief,
@@ -180,22 +192,35 @@
     const brief = passport.brief;
     const full = passport.full;
     const showTeaser = !wantFull;
+    const degreesOk = brief.degrees && brief.degrees.includes("–");
 
     let html = `
       <section class="theory-passport">
         <p class="theory-kicker">Гармонический паспорт</p>
-        <p class="theory-degrees">${escapeHtml(brief.degrees)}</p>
-        <p class="theory-line"><strong>Функции.</strong> ${escapeHtml(brief.functions)}</p>
-        <p class="theory-line"><strong>Лад.</strong> ${escapeHtml(brief.modeLine)}</p>
-        <p class="theory-line">${escapeHtml(brief.center)}</p>
+        ${
+          degreesOk
+            ? `<p class="theory-degrees">${escapeHtml(brief.degrees)}</p>`
+            : `<p class="theory-degrees theory-degrees--soft">${escapeHtml(brief.degrees || "—")}</p>`
+        }
+        <p class="theory-line"><span class="theory-label">Функции</span>${escapeHtml(brief.functions)}</p>
+        <p class="theory-line"><span class="theory-label">Лад</span>${escapeHtml(brief.modeLine)}</p>
+        <p class="theory-line"><span class="theory-label">Центр</span>${escapeHtml(
+          brief.center.replace(/^Тональный центр:\s*/i, "")
+        )}</p>
         <p class="theory-summary">${escapeHtml(brief.summary)}</p>`;
 
     if (wantFull) {
       html += `
-        <p class="theory-line"><strong>Каденция.</strong> ${escapeHtml(full.cadence)}</p>
-        <p class="theory-line"><strong>Ладовая глубина.</strong> ${escapeHtml(full.modes.join(" · "))}. ${escapeHtml(full.modeNote)}</p>
-        <p class="theory-line"><strong>Голосоведение.</strong> ${escapeHtml(full.voiceLeading)}</p>
-        <p class="theory-line"><strong>Родственные обороты.</strong> ${escapeHtml(full.alternatives)}</p>`;
+        <p class="theory-line"><span class="theory-label">Каденция</span>${escapeHtml(full.cadence)}</p>
+        <p class="theory-line"><span class="theory-label">Ладовая глубина</span>${escapeHtml(
+          full.modes.join(" · ")
+        )}. ${escapeHtml(full.modeNote)}</p>
+        <p class="theory-line"><span class="theory-label">Голосоведение</span>${escapeHtml(
+          full.voiceLeading
+        )}</p>
+        <p class="theory-line"><span class="theory-label">Родственные обороты</span>${escapeHtml(
+          full.alternatives
+        )}</p>`;
     } else if (showTeaser) {
       html += `
         <div class="theory-lock">
@@ -224,7 +249,7 @@
         <p class="theory-kicker">Тональный центр</p>
         <p class="theory-degrees">${escapeHtml(symbol)}</p>
         <p class="theory-line">${escapeHtml(role)}</p>
-        <p class="theory-line"><strong>Лад.</strong> ${escapeHtml(mode.modeLine)}</p>
+        <p class="theory-line"><span class="theory-label">Лад</span>${escapeHtml(mode.modeLine)}</p>
         <p class="theory-summary">${escapeHtml(mode.note)}</p>
       </section>`;
   }
@@ -295,6 +320,10 @@
 
   function saveSongState(song) {
     if (!hasLadPlus()) return false;
+    const hasContent =
+      song &&
+      Object.values(song).some((part) => part && Array.isArray(part.path) && part.path.length);
+    if (!hasContent) return false;
     try {
       localStorage.setItem(SONG_SAVE_KEY, JSON.stringify(song));
       return true;
@@ -310,6 +339,22 @@
     } catch (_) {
       return null;
     }
+  }
+
+  function clearSongState() {
+    try {
+      localStorage.removeItem(SONG_SAVE_KEY);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hasSavedSong() {
+    const saved = loadSongState();
+    return Boolean(
+      saved && Object.values(saved).some((part) => part && Array.isArray(part.path) && part.path.length)
+    );
   }
 
   function passportForPdf(pathIdea, opts) {
@@ -343,6 +388,8 @@
     bindLadPlusScreen,
     saveSongState,
     loadSongState,
+    clearSongState,
+    hasSavedSong,
     passportForPdf,
   };
 })(typeof window !== "undefined" ? window : globalThis);

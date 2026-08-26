@@ -606,8 +606,6 @@ function renderNightMapSvg(nodes, start) {
       const my = cy + Math.sin(angle) * (rHub + (rOuter - rHub) * 0.52);
       const tx = mx + Math.cos(angle + Math.PI / 2) * 18;
       const ty = my + Math.sin(angle + Math.PI / 2) * 18;
-      const lx = cx + Math.cos(angle) * rLabel;
-      const ly = cy + Math.sin(angle) * rLabel;
       return `
         <g class="nmap-ray" data-path-idx="${node.pathIdx}" role="button" tabindex="0" aria-label="${node.chord}">
           <line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" class="nmap-line"/>
@@ -616,7 +614,6 @@ function renderNightMapSvg(nodes, start) {
           <circle cx="${x}" cy="${y}" r="24" class="nmap-node"/>
           <image href="icons/map_node_landscape.png" x="${x - 10}" y="${y - 14}" width="20" height="20" preserveAspectRatio="xMidYMid slice"/>
           <text x="${x}" y="${y + 14}" text-anchor="middle" class="nmap-chord">${node.chord}</text>
-          <text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" class="nmap-deg">${node.degree}</text>
         </g>`;
     })
     .join("");
@@ -700,6 +697,11 @@ function renderMap() {
             ? `<p class="nmap-edge-theory">Полный разбор каденции и родственных оборотов — в Лад+.</p>`
             : ""
         }
+        ${
+          !focus
+            ? `<p class="map-focus-route soft">Нажмите узел — откроется связь и ход</p>`
+            : `<p class="map-focus-route">${focus.path.join(" → ")}</p>`
+        }
       </div>
       <button type="button" class="map-info-more" id="mapDetails">${focus ? "К ходу ›" : "Подробнее ›"}</button>
     </article>
@@ -707,15 +709,9 @@ function renderMap() {
     <button type="button" class="btn btn-glow btn-block" id="toSong">
       Собрать в дорожку →
     </button>
-    <div class="actions" style="margin-top:0.6rem">
+    <div class="actions map-bottom-actions">
       <button type="button" class="btn btn-ghost" data-open-lad-plus>Лад+</button>
     </div>
-
-    ${
-      focus
-        ? `<p class="map-focus-route">${focus.path.join(" → ")}</p>`
-        : `<p class="map-focus-route soft">Нажмите узел — откроется связь и ход</p>`
-    }
   `;
 
   bindTheoryHooks(stage);
@@ -834,18 +830,32 @@ function renderPath() {
   document.getElementById("pathToSong").addEventListener("click", () => setScreen("song"));
 }
 
-function restoreSavedSong() {
-  if (!hasPlus() || typeof LadTheory === "undefined") return;
-  const saved = LadTheory.loadSongState();
-  if (!saved || typeof saved !== "object") return;
+function applySongState(saved) {
+  if (!saved || typeof saved !== "object") return false;
+  let loaded = false;
   SONG_SLOTS.forEach((s) => {
-    if (saved[s.id]) state.song[s.id] = saved[s.id];
+    if (saved[s.id]?.path?.length) {
+      state.song[s.id] = saved[s.id];
+      loaded = true;
+    }
   });
+  if (!loaded) return false;
   const first = SONG_SLOTS.map((s) => state.song[s.id]).find(Boolean);
   if (first) {
     if (first.mood) state.mood = first.mood;
     if (first.start) state.start = first.start;
   }
+  return true;
+}
+
+function restoreSavedSong() {
+  if (!hasPlus() || typeof LadTheory === "undefined") return false;
+  if (!LadTheory.hasSavedSong()) return false;
+  return applySongState(LadTheory.loadSongState());
+}
+
+function currentSongIsEmpty() {
+  return !SONG_SLOTS.some((s) => state.song[s.id]?.path?.length);
 }
 
 function renderSong() {
@@ -854,6 +864,9 @@ function renderSong() {
   const plus = hasPlus();
   const previewHtml =
     state.pdfPreview && filled.length ? renderPdfPreviewBlock(filled) : "";
+  const hasDeviceSave =
+    typeof LadTheory !== "undefined" && LadTheory.hasSavedSong && LadTheory.hasSavedSong();
+  const showLoadBanner = plus && hasDeviceSave && currentSongIsEmpty();
 
   stage.innerHTML = `
     <p class="kicker">Дорожка песни</p>
@@ -865,6 +878,16 @@ function renderSong() {
       <span class="chip">${filled.length} / ${SONG_SLOTS.length}</span>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
+    ${
+      showLoadBanner
+        ? `<div class="song-saved-banner" id="songSavedBanner">
+            <p>На этом устройстве есть сохранённая дорожка.</p>
+            <button type="button" class="btn btn-glow btn-tiny" id="loadSavedSong">Открыть сохранённую</button>
+          </div>`
+        : hasDeviceSave && plus
+          ? `<p class="song-saved-note">Есть копия на устройстве · вкладка «Дорожка»</p>`
+          : ""
+    }
     <div class="song-list">
       ${SONG_SLOTS.map((slot) => {
         const item = state.song[slot.id];
@@ -895,6 +918,7 @@ function renderSong() {
       }).join("")}
     </div>
     ${previewHtml}
+    <p class="song-save-status" id="songSaveStatus" hidden></p>
     <div class="actions">
       <button type="button" class="btn btn-glow" id="exportPdf" ${filled.length ? "" : "disabled"}>
         ${plus ? "Выгрузить PDF" : "Показать лист (как после оплаты)"}
@@ -904,11 +928,35 @@ function renderSong() {
           ? `<button type="button" class="btn btn-primary" id="saveSong">Сохранить дорожку</button>`
           : `<button type="button" class="btn btn-primary" data-open-lad-plus>Сохранение — в Лад+</button>`
       }
+      ${
+        plus && hasDeviceSave && !currentSongIsEmpty()
+          ? `<button type="button" class="btn btn-ghost" id="reloadSavedSong">Вернуть сохранённую</button>`
+          : ""
+      }
       <button type="button" class="btn btn-ghost" id="toMap">К карте</button>
       <button type="button" class="btn btn-ghost" id="resetSong">Очистить</button>
     </div>
   `;
   bindTheoryHooks(stage);
+
+  const flashSaveStatus = (text) => {
+    const el = document.getElementById("songSaveStatus");
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = text;
+  };
+
+  const loadFromDevice = () => {
+    if (restoreSavedSong()) {
+      state.pdfPreview = false;
+      renderSong();
+      flashSaveStatus("Сохранённая дорожка открыта во вкладке «Дорожка».");
+    }
+  };
+
+  document.getElementById("loadSavedSong")?.addEventListener("click", loadFromDevice);
+  document.getElementById("reloadSavedSong")?.addEventListener("click", loadFromDevice);
+
   stage.querySelectorAll("[data-clear-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.song[btn.dataset.clearSlot] = null;
@@ -941,8 +989,25 @@ function renderSong() {
     renderSong();
   });
   document.getElementById("saveSong")?.addEventListener("click", () => {
+    if (!filled.length) {
+      flashSaveStatus("Сначала добавьте хотя бы один ход в форму.");
+      return;
+    }
     if (typeof LadTheory !== "undefined" && LadTheory.saveSongState(state.song)) {
-      alert("Дорожка сохранена на этом устройстве.");
+      flashSaveStatus(
+        "Сохранено на этом устройстве. Откройте вкладку «Дорожка» — дорожка подтянется здесь же в браузере."
+      );
+      // refresh banner/note without wiping status: re-render then restore message
+      const msg =
+        "Сохранено на этом устройстве. Откройте вкладку «Дорожка» — дорожка подтянется здесь же в браузере.";
+      renderSong();
+      const el = document.getElementById("songSaveStatus");
+      if (el) {
+        el.hidden = false;
+        el.textContent = msg;
+      }
+    } else {
+      flashSaveStatus("Не удалось сохранить. Нужен Лад+ и хотя бы одна заполненная часть.");
     }
   });
   document.getElementById("exportPdf")?.addEventListener("click", () => {
@@ -950,7 +1015,6 @@ function renderSong() {
       exportSongToPdf();
       return;
     }
-    // Полный вид листа как после оплаты; выгрузка файла — через Лад+
     state.pdfPreview = true;
     renderSong();
     document.getElementById("pdfPreview")?.scrollIntoView({ behavior: "smooth", block: "start" });

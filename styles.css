@@ -979,8 +979,8 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
 }
 
 .map-focus-route {
-  margin: 0.7rem 0 0;
-  text-align: center;
+  margin: 0.55rem 0 0;
+  text-align: left;
   font-family: var(--font-display);
   font-size: 1.05rem;
   color: rgba(247, 235, 220, 0.9);
@@ -990,6 +990,42 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   font-family: var(--font-body);
   font-size: 0.86rem;
   color: var(--ink-mute);
+}
+
+.map-bottom-actions {
+  margin-top: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.song-saved-banner {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(240, 163, 90, 0.1);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.song-saved-banner p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.song-saved-note,
+.song-save-status {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: var(--accent);
+}
+
+.song-save-status[hidden] {
+  display: none;
+}
+
+.nmap-deg {
+  display: none;
 }
 
 .map-gate.night {
@@ -1276,11 +1312,26 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   line-height: var(--lh-tight);
 }
 
+.theory-degrees--soft {
+  font-size: 1.15rem;
+  color: var(--ink-soft);
+}
+
 .theory-line {
-  margin: 0 0 var(--space-1);
+  margin: 0 0 var(--space-2);
   font-size: 0.92rem;
   line-height: var(--lh-body);
   color: var(--ink-soft);
+}
+
+.theory-label {
+  display: block;
+  margin: 0 0 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .theory-summary {

@@ -1750,3 +1750,47 @@ button[data-open-degrees].btn-glow {
   background: var(--accent);
   font-weight: 700;
 }
+
+/* ----- iPhone / song UX polish ----- */
+.path-cta-top {
+  margin: 0.55rem 0 0.85rem;
+  position: sticky;
+  top: 0.35rem;
+  z-index: 8;
+  padding: 0.45rem 0.35rem;
+  border-radius: 14px;
+  background: rgba(10, 9, 8, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.diag-toggle {
+  margin: 0.35rem 0 0.55rem;
+}
+.song-part-actions {
+  margin-top: 0.45rem;
+}
+.solo-mode__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.45rem;
+}
+.tab {
+  min-height: 48px;
+  padding: 0.65rem 0.3rem 0.55rem;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.btn, .chip-btn, .chord-play-btn, .scale-play-btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.stage {
+  /* меньше «вспышки» при частых перерисовках на iOS */
+  animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage.is-enter {
+    animation: rise 0.35s var(--ease) both;
+  }
+}

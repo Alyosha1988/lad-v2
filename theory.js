@@ -1346,11 +1346,11 @@
       return `Хорошо ложится на ${cover} аккордов; на чужих — опирайтесь на тоны аккорда.`;
     }
     if (def.safe) {
-      return `Safe box over the loop · chord tones on the changes.`;
+      return `Safe-box поверх петли · на сменах — chord tones.`;
     }
-    if (charHint) return `${charHint} Fit ${cover}.`;
-    if (fitCount === total) return `Fully diatonic to the loop (${degrees || "I…" }).`;
-    return `Partial fit ${cover}: chord tones on the weak beats.`;
+    if (charHint) return `${charHint} Покрытие ${cover}.`;
+    if (fitCount === total) return `Полностью диатоничен к петле (${degrees || "I…" }).`;
+    return `Частичное покрытие ${cover}: на слабых долях — тоны аккорда.`;
   }
 
   function soloCharHint(def, tonic, flats, degrees, plain) {
@@ -1362,37 +1362,37 @@
     if (def.id === "dorian") {
       return plain
         ? `Открытая VI (${sixth}) даёт «светлый» минор — хорошо, если в ходе есть мажорная IV.`
-        : `Natural 6 (${sixth}) · dorian colour vs aeolian b6.`;
+        : `Натуральная VI (${sixth}) · дорийская краска против эолийской b6.`;
     }
     if (def.id === "aeolian") {
       return plain
         ? `Замкнутый минор с ${flatSix} — тень без обязательной острой доминанты.`
-        : `b6 (${flatSix}) · natural minor centre.`;
+        : `b6 (${flatSix}) · натуральный минорный центр.`;
     }
     if (def.id === "phrygian") {
       return plain
         ? `Острый вход с ${flatTwo} — напряжение без смены дома.`
-        : `b2 (${flatTwo}) · phrygian pull.`;
+        : `b2 (${flatTwo}) · фригийское тяготение.`;
     }
     if (def.id === "lydian") {
       return plain
         ? `Парящая ${sharpFour} вместо обычной IV — дымка над мажором.`
-        : `#4 (${sharpFour}) · lydian lift.`;
+        : `#4 (${sharpFour}) · лидийский подъём.`;
     }
     if (def.id === "mixolydian") {
       return plain
         ? `Мягкая VII вместо «классической» — рок/блюзовый мажорный центр.`
-        : `b7 colour · mixo centre.`;
+        : `b7 · миксолидийский центр.`;
     }
     if (def.id === "harmonic_minor") {
       return plain
         ? `Острая VII тянет в дом — классический «минор с доминантой».`
-        : `Raised 7 · V7→i flavour.`;
+        : `Повышенная VII · вкус V7→i.`;
     }
     if (def.id === "ionian") {
       return plain
         ? `Ясный мажорный дом (${majThree} в трезвучии I) — открыто и ровно.`
-        : `Ionian diatonic major.`;
+        : `Ионийская мажорная диатоника.`;
     }
     return "";
   }

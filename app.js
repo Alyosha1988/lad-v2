@@ -67,7 +67,12 @@ const state = {
   soloSuggest: {
     open: false,
     slotId: null,
+    boxesModeId: null, // какой лад раскрыт с боксами
   },
+  /** Развёрнутые аппликатуры на Дорожке: { verse: true, ... } */
+  songDiagsOpen: {},
+  /** Аппликатуры на экране хода */
+  pathDiagsOpen: false,
 };
 
 const stage = document.getElementById("stage");
@@ -179,6 +184,8 @@ function bindVoiceDelegation() {
         if (screen === "degrees") renderDegrees();
         else if (screen === "glossary") renderGlossary();
         else if (screen === "plus") renderLadPlus();
+        else if (screen === "song") renderWithScrollKeep(() => renderSong());
+        else if (screen === "map") renderWithScrollKeep(() => renderMap());
         else render();
       });
     },
@@ -908,6 +915,12 @@ function renderMap() {
   // double-click / second tap on active goes to path — add "open" on info more already
 }
 
+function renderWithScrollKeep(fn) {
+  const y = window.scrollY || window.pageYOffset || 0;
+  fn();
+  window.scrollTo(0, y);
+}
+
 function renderPath() {
   const p = state.activePath;
   if (!p) {
@@ -922,6 +935,7 @@ function renderPath() {
   const passportHtml = passport ? LadTheory.renderPassportHtml(passport) : "";
   const kindLabel =
     typeof LadTheory !== "undefined" ? LadTheory.upperRomans(p.kind || "") : p.kind || "";
+  const diagsOpen = !!state.pathDiagsOpen;
 
   stage.innerHTML = `
     <p class="kicker">Гармонический ход</p>
@@ -933,28 +947,33 @@ function renderPath() {
       <button type="button" class="chip chip-btn" data-open-glossary>Словарь</button>
       <button type="button" class="chip chip-btn" data-open-lad-plus>Лад+</button>
     </div>
-    <div class="actions" style="margin:0.55rem 0 0.85rem">
+    <div class="actions path-cta-top">
       <button type="button" class="btn btn-glow" data-open-degrees>Ступени от ${state.start}</button>
+      <button type="button" class="btn btn-primary" data-slot="verse">В куплет</button>
+      <button type="button" class="btn btn-primary" data-slot="chorus">В припев</button>
+      <button type="button" class="btn btn-ghost" data-slot="intro">В интро</button>
+      <button type="button" class="btn btn-ghost" data-slot="bridge">В бридж</button>
+      <button type="button" class="btn btn-ghost" id="anotherPath">Другой ход</button>
     </div>
     ${passportHtml}
     <div class="panel">
-      ${renderPathDiagrams(p.path)}
       <p class="result-why">${p.why}</p>
-      <div class="actions">
-        <button type="button" class="btn btn-primary" data-slot="verse">В куплет</button>
-        <button type="button" class="btn btn-primary" data-slot="chorus">В припев</button>
-        <button type="button" class="btn btn-ghost" data-slot="intro">В интро</button>
-        <button type="button" class="btn btn-ghost" data-slot="bridge">В бридж</button>
-        <button type="button" class="btn btn-ghost" id="anotherPath">Другой ход</button>
-      </div>
+      <button type="button" class="btn btn-ghost btn-block diag-toggle" id="togglePathDiags" aria-expanded="${diagsOpen ? "true" : "false"}">
+        ${diagsOpen ? "Скрыть аппликатуры" : "Показать аппликатуры и слушать"}
+      </button>
+      ${diagsOpen ? renderPathDiagrams(p.path) : ""}
     </div>
     <div class="actions">
       <button type="button" class="btn btn-glow btn-block" id="pathToSong">
-        Собрать в дорожку →
+        К дорожке →
       </button>
     </div>
   `;
   bindTheoryHooks(stage);
+  document.getElementById("togglePathDiags")?.addEventListener("click", () => {
+    state.pathDiagsOpen = !state.pathDiagsOpen;
+    renderWithScrollKeep(() => renderPath());
+  });
   stage.querySelectorAll("[data-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.song[btn.dataset.slot] = {
@@ -965,14 +984,21 @@ function renderPath() {
         mood: state.mood,
         start: state.start,
       };
+      state.pathDiagsOpen = false;
       if (hasPlus() && typeof LadTheory !== "undefined") {
         LadTheory.saveSongState(state.song);
       }
       setScreen("song");
     });
   });
-  document.getElementById("anotherPath").addEventListener("click", () => setScreen("map"));
-  document.getElementById("pathToSong").addEventListener("click", () => setScreen("song"));
+  document.getElementById("anotherPath").addEventListener("click", () => {
+    state.pathDiagsOpen = false;
+    setScreen("map");
+  });
+  document.getElementById("pathToSong").addEventListener("click", () => {
+    state.pathDiagsOpen = false;
+    setScreen("song");
+  });
 }
 
 function applySongState(saved) {
@@ -1051,6 +1077,13 @@ function renderSoloSuggestBlock(filled, plus) {
   const voiceToggle =
     typeof LadTheory !== "undefined" ? LadTheory.renderVoiceToggleMini() : "";
 
+  if (
+    suggestion?.modes?.length &&
+    !suggestion.modes.some((m) => m.id === state.soloSuggest.boxesModeId)
+  ) {
+    state.soloSuggest.boxesModeId = null;
+  }
+
   const options = filled
     .map((slot) => {
       const it = state.song[slot.id];
@@ -1068,16 +1101,21 @@ function renderSoloSuggestBlock(filled, plus) {
         const title = LadTheory.soloModeTitle(mode, voice);
         const why = LadTheory.soloModeWhy(mode, voice);
         const notes = mode.notes.join(" · ");
+        const boxesOpen = state.soloSuggest.boxesModeId === mode.id;
         const diagrams =
-          typeof renderScaleDiagrams === "function"
+          boxesOpen && typeof renderScaleDiagrams === "function"
             ? renderScaleDiagrams(mode.notes, {
                 root: suggestion.home,
-                label: idx === 0 ? "Позиции на грифе · R = корень" : "",
+                label: "Позиции на грифе · R = корень",
                 midis: mode.midis,
               })
             : "";
+        const playOnly =
+          !boxesOpen && mode.midis?.length
+            ? `<button type="button" class="btn btn-glow btn-tiny scale-play-btn" data-play-melody="${mode.midis.join(",")}" aria-label="Проиграть лад">▶ Проиграть лад</button>`
+            : "";
         return `
-          <article class="solo-mode ${idx === 0 ? "is-top" : ""}">
+          <article class="solo-mode ${idx === 0 ? "is-top" : ""}" data-solo-mode="${mode.id}">
             <div class="solo-mode__head">
               <p class="solo-mode__rank">${idx + 1}</p>
               <div>
@@ -1086,6 +1124,12 @@ function renderSoloSuggestBlock(filled, plus) {
               </div>
             </div>
             <p class="solo-mode__why">${why}</p>
+            <div class="solo-mode__tools">
+              <button type="button" class="btn btn-ghost btn-tiny" data-toggle-solo-boxes="${mode.id}" aria-expanded="${boxesOpen ? "true" : "false"}">
+                ${boxesOpen ? "Скрыть боксы" : "Боксы на грифе"}
+              </button>
+              ${playOnly}
+            </div>
             ${diagrams}
           </article>`;
       })
@@ -1139,7 +1183,7 @@ function renderSong() {
   stage.innerHTML = `
     <p class="kicker">Дорожка песни</p>
     <h1 class="h1">Соберите форму</h1>
-    <p class="hand-note">Аппликатуры и прослушивание в частях формы · инструмент сверху</p>
+    <p class="hand-note">Части формы · аппликатуры по кнопке · инструмент сверху</p>
     <div class="chip-row">
       ${mood ? `<span class="chip">${mood.title}</span>` : ""}
       ${state.start ? `<span class="chip">центр ${state.start}</span>` : ""}
@@ -1174,16 +1218,20 @@ function renderSong() {
           typeof LadTheory !== "undefined"
             ? LadTheory.buildPassport(item, { moodId: item.mood, start: item.start }).brief
             : null;
+        const diagsOpen = !!state.songDiagsOpen[slot.id];
         return `
           <div class="song-part">
             <p class="label">${slot.title}</p>
             <p class="route">${item.path.join(" → ")}</p>
             <p class="meta">${moodTitle} · ${item.family}${pass ? ` · ${pass.degrees}` : ""}</p>
-            ${renderPathDiagrams(item.path)}
-            <div class="actions">
+            <div class="actions song-part-actions">
               <button type="button" class="btn btn-ghost" data-open-slot="${slot.id}">Открыть ход</button>
               <button type="button" class="btn btn-ghost" data-clear-slot="${slot.id}">Убрать</button>
+              <button type="button" class="btn btn-ghost diag-toggle" data-toggle-song-diag="${slot.id}" aria-expanded="${diagsOpen ? "true" : "false"}">
+                ${diagsOpen ? "Скрыть аппликатуры" : "Аппликатуры"}
+              </button>
             </div>
+            ${diagsOpen ? renderPathDiagrams(item.path) : ""}
           </div>`;
       }).join("")}
     </div>
@@ -1220,27 +1268,38 @@ function renderSong() {
   document.getElementById("openSoloSuggest")?.addEventListener("click", () => {
     state.soloSuggest.open = true;
     state.soloSuggest.slotId = defaultSoloSlotId();
+    state.soloSuggest.boxesModeId = null;
     const item = state.song[state.soloSuggest.slotId];
     if (item?.start) state.start = item.start;
     if (item?.mood) state.mood = item.mood;
-    renderSong();
-    requestAnimationFrame(() => {
-      document.getElementById("soloSuggestPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    renderWithScrollKeep(() => renderSong());
   });
   document.getElementById("closeSoloSuggest")?.addEventListener("click", () => {
     state.soloSuggest.open = false;
-    renderSong();
+    state.soloSuggest.boxesModeId = null;
+    renderWithScrollKeep(() => renderSong());
   });
   document.getElementById("soloSlotSelect")?.addEventListener("change", (e) => {
     state.soloSuggest.slotId = e.target.value;
     state.soloSuggest.open = true;
+    state.soloSuggest.boxesModeId = null;
     const item = state.song[state.soloSuggest.slotId];
     if (item?.start) state.start = item.start;
     if (item?.mood) state.mood = item.mood;
-    renderSong();
-    requestAnimationFrame(() => {
-      document.getElementById("soloSuggestPanel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    renderWithScrollKeep(() => renderSong());
+  });
+  stage.querySelectorAll("[data-toggle-solo-boxes]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.toggleSoloBoxes;
+      state.soloSuggest.boxesModeId = state.soloSuggest.boxesModeId === id ? null : id;
+      renderWithScrollKeep(() => renderSong());
+    });
+  });
+  stage.querySelectorAll("[data-toggle-song-diag]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.toggleSongDiag;
+      state.songDiagsOpen[id] = !state.songDiagsOpen[id];
+      renderWithScrollKeep(() => renderSong());
     });
   });
 
@@ -1259,12 +1318,14 @@ function renderSong() {
     btn.addEventListener("click", () => {
       const id = btn.dataset.clearSlot;
       state.song[id] = null;
+      delete state.songDiagsOpen[id];
       state.pdfPreview = false;
       if (state.soloSuggest.slotId === id) {
         state.soloSuggest.slotId = defaultSoloSlotId();
+        state.soloSuggest.boxesModeId = null;
         if (!state.soloSuggest.slotId) state.soloSuggest.open = false;
       }
-      renderSong();
+      renderWithScrollKeep(() => renderSong());
     });
   });
   stage.querySelectorAll("[data-open-slot]").forEach((btn) => {
@@ -1274,6 +1335,7 @@ function renderSong() {
       state.activePath = { path: item.path, kind: item.kind, family: item.family, why: item.why || "" };
       state.mood = item.mood;
       state.start = item.start;
+      state.pathDiagsOpen = false;
       state.pdfPreview = false;
       setScreen("path");
     });
@@ -1289,7 +1351,8 @@ function renderSong() {
   document.getElementById("resetSong").addEventListener("click", () => {
     SONG_SLOTS.forEach((s) => (state.song[s.id] = null));
     state.pdfPreview = false;
-    state.soloSuggest = { open: false, slotId: null };
+    state.songDiagsOpen = {};
+    state.soloSuggest = { open: false, slotId: null, boxesModeId: null };
     renderSong();
   });
   document.getElementById("saveSong")?.addEventListener("click", () => {
@@ -1375,12 +1438,18 @@ btnBack.addEventListener("click", goBack);
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     const nav = tab.dataset.nav;
-    if (nav === "mood") setScreen("mood");
-    else if (nav === "map") {
+    if (nav === "mood") {
+      if (state.screen === "mood") return;
+      setScreen("mood");
+    } else if (nav === "map") {
       // Always land on the map page (gate if mood/start missing)
+      if (state.screen === "map") return;
       if (state.mood && state.start) loadPaths();
       setScreen("map");
-    } else if (nav === "song") setScreen("song");
+    } else if (nav === "song") {
+      if (state.screen === "song") return;
+      setScreen("song");
+    }
   });
 });
 

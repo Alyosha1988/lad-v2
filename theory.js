@@ -1214,6 +1214,317 @@
     return `<button type="button" class="btn btn-glow btn-tiny" data-open-degrees>${escapeHtml(label)}</button>`;
   }
 
+  /* ---------- лады для соло над собранной дорожкой ---------- */
+
+  const SOLO_MODE_DEFS = [
+    {
+      id: "ionian",
+      intervals: [0, 2, 4, 5, 7, 9, 11],
+      namePlain: "Натуральный мажор",
+      namePro: "Ионийский",
+      home: "major",
+      moods: { bright: 3, dream: 1 },
+    },
+    {
+      id: "aeolian",
+      intervals: [0, 2, 3, 5, 7, 8, 10],
+      namePlain: "Натуральный минор",
+      namePro: "Эолийский",
+      home: "minor",
+      moods: { dark: 3, pulse: 1, groovy: 1 },
+    },
+    {
+      id: "dorian",
+      intervals: [0, 2, 3, 5, 7, 9, 10],
+      namePlain: "Минор с открытой VI",
+      namePro: "Дорийский",
+      home: "minor",
+      moods: { groovy: 3, pulse: 3, dream: 1, dark: 1 },
+    },
+    {
+      id: "phrygian",
+      intervals: [0, 1, 3, 5, 7, 8, 10],
+      namePlain: "Острый минор",
+      namePro: "Фригийский",
+      home: "minor",
+      moods: { tense: 3, dark: 2 },
+    },
+    {
+      id: "lydian",
+      intervals: [0, 2, 4, 6, 7, 9, 11],
+      namePlain: "Мажор с парящей IV",
+      namePro: "Лидийский",
+      home: "major",
+      moods: { dream: 3, bright: 1 },
+    },
+    {
+      id: "mixolydian",
+      intervals: [0, 2, 4, 5, 7, 9, 10],
+      namePlain: "Мажор с мягкой VII",
+      namePro: "Миксолидийский",
+      home: "mixo",
+      moods: { groovy: 2, pulse: 2, bright: 1, dream: 1 },
+    },
+    {
+      id: "harmonic_minor",
+      intervals: [0, 2, 3, 5, 7, 8, 11],
+      namePlain: "Минор с острой доминантой",
+      namePro: "Гармонический минор",
+      home: "minor",
+      moods: { tense: 2, dark: 2 },
+    },
+    {
+      id: "minor_pent",
+      intervals: [0, 3, 5, 7, 10],
+      namePlain: "Минорная пентатоника",
+      namePro: "Minor pentatonic",
+      home: "minor",
+      moods: { dark: 1, groovy: 2, pulse: 2, tense: 1 },
+      safe: true,
+    },
+    {
+      id: "major_pent",
+      intervals: [0, 2, 4, 7, 9],
+      namePlain: "Мажорная пентатоника",
+      namePro: "Major pentatonic",
+      home: "major",
+      moods: { bright: 2, dream: 1 },
+      safe: true,
+    },
+    {
+      id: "blues",
+      intervals: [0, 3, 5, 6, 7, 10],
+      namePlain: "Блюзовая гамма",
+      namePro: "Blues scale",
+      home: "any",
+      moods: { groovy: 3, pulse: 2, tense: 1, dark: 1 },
+      safe: true,
+    },
+  ];
+
+  function soloChordPcs(symbol) {
+    if (typeof chordPitchClasses === "function") return chordPitchClasses(symbol);
+    const p = degParseChord(symbol);
+    if (!p) return [];
+    const root = degNoteIndex(p.root);
+    if (root < 0) return [];
+    const q = p.quality || "";
+    let ints = [0, 4, 7];
+    if (p.isMinor) ints = /7|9|11/.test(q) ? [0, 3, 7, 10] : [0, 3, 7];
+    else if (p.isDom7) ints = [0, 4, 7, 10];
+    else if (/maj7|Δ/i.test(q)) ints = [0, 4, 7, 11];
+    return ints.map((iv) => (root + iv) % 12);
+  }
+
+  function soloFitChord(chordPcs, scaleSet) {
+    if (!chordPcs.length) return 0;
+    const misses = chordPcs.filter((pc) => !scaleSet.has(pc % 12)).length;
+    if (misses === 0) return 1;
+    if (misses === 1 && chordPcs.length >= 4) return 0.45;
+    return 0;
+  }
+
+  function soloScaleMidis(tonicPc, intervals, startMidi = 57) {
+    let tonic = startMidi - ((startMidi - tonicPc) % 12 + 12) % 12;
+    if (tonic < 52) tonic += 12;
+    if (tonic > 64) tonic -= 12;
+    const midis = intervals.map((iv) => tonic + iv);
+    // октава вверх для ощущения гаммы
+    midis.push(tonic + 12);
+    return midis;
+  }
+
+  function soloWhy(def, ctx) {
+    const { fitCount, total, degrees, charHint, plain } = ctx;
+    const cover = `${fitCount} из ${total}`;
+    if (plain) {
+      if (def.safe) {
+        return `Безопасный каркас поверх петли — меньше риска «не той» ноты; на сменах опирайтесь на тоны аккорда.`;
+      }
+      if (charHint) return `${charHint} Покрывает ${cover} аккордов хода.`;
+      if (fitCount === total) return `Все аккорды петли лежат в этом ладу — можно вести соло одной краской.`;
+      return `Хорошо ложится на ${cover} аккордов; на чужих — опирайтесь на тоны аккорда.`;
+    }
+    if (def.safe) {
+      return `Safe box over the loop · chord tones on the changes.`;
+    }
+    if (charHint) return `${charHint} Fit ${cover}.`;
+    if (fitCount === total) return `Fully diatonic to the loop (${degrees || "I…" }).`;
+    return `Partial fit ${cover}: chord tones on the weak beats.`;
+  }
+
+  function soloCharHint(def, tonic, flats, degrees, plain) {
+    const sixth = degSpell(degTrans(tonic, 9, flats), flats);
+    const flatSix = degSpell(degTrans(tonic, 8, flats), flats);
+    const sharpFour = degSpell(degTrans(tonic, 6, flats), flats);
+    const flatTwo = degSpell(degTrans(tonic, 1, flats), flats);
+    const majThree = degSpell(degTrans(tonic, 4, flats), flats);
+    if (def.id === "dorian") {
+      return plain
+        ? `Открытая VI (${sixth}) даёт «светлый» минор — хорошо, если в ходе есть мажорная IV.`
+        : `Natural 6 (${sixth}) · dorian colour vs aeolian b6.`;
+    }
+    if (def.id === "aeolian") {
+      return plain
+        ? `Замкнутый минор с ${flatSix} — тень без обязательной острой доминанты.`
+        : `b6 (${flatSix}) · natural minor centre.`;
+    }
+    if (def.id === "phrygian") {
+      return plain
+        ? `Острый вход с ${flatTwo} — напряжение без смены дома.`
+        : `b2 (${flatTwo}) · phrygian pull.`;
+    }
+    if (def.id === "lydian") {
+      return plain
+        ? `Парящая ${sharpFour} вместо обычной IV — дымка над мажором.`
+        : `#4 (${sharpFour}) · lydian lift.`;
+    }
+    if (def.id === "mixolydian") {
+      return plain
+        ? `Мягкая VII вместо «классической» — рок/блюзовый мажорный центр.`
+        : `b7 colour · mixo centre.`;
+    }
+    if (def.id === "harmonic_minor") {
+      return plain
+        ? `Острая VII тянет в дом — классический «минор с доминантой».`
+        : `Raised 7 · V7→i flavour.`;
+    }
+    if (def.id === "ionian") {
+      return plain
+        ? `Ясный мажорный дом (${majThree} в трезвучии I) — открыто и ровно.`
+        : `Ionian diatonic major.`;
+    }
+    return "";
+  }
+
+  /**
+   * Подбор ладов для соло над слотом дорожки.
+   * @param {{ path: string[], start?: string, mood?: string, kind?: string, why?: string, family?: string }} slotItem
+   * @param {{ moodId?: string, limit?: number }} opts
+   */
+  function suggestSoloModes(slotItem, opts = {}) {
+    if (!slotItem?.path?.length) return null;
+    const start = slotItem.start || slotItem.path[0];
+    const parsed = degParseChord(start);
+    if (!parsed) return null;
+
+    const moodId = opts.moodId || slotItem.mood || "dark";
+    const catalogMood =
+      moodId === "pulse" ? "groovy" : moodId;
+    const homeMinor = !!parsed.isMinor;
+    const flats = degPreferFlats(parsed.root, homeMinor || parsed.isDom7);
+    const tonic = degSpell(parsed.root, flats);
+    const tonicPc = degNoteIndex(parsed.root);
+    const degrees =
+      guessDegrees(
+        { path: slotItem.path, kind: slotItem.kind, why: slotItem.why },
+        start
+      ) || deriveDegreeSequence(start, slotItem.path);
+
+    const chordData = slotItem.path.map((sym) => ({
+      sym,
+      pcs: soloChordPcs(sym),
+    }));
+    const total = chordData.length;
+    const keyMode = parsed.isMinor ? "minor" : parsed.isDom7 ? "mixo" : "major";
+
+    const ranked = SOLO_MODE_DEFS.map((def) => {
+      const scalePcs = def.intervals.map((iv) => (tonicPc + iv) % 12);
+      const scaleSet = new Set(scalePcs);
+      let fitSum = 0;
+      let fitCount = 0;
+      for (const c of chordData) {
+        const f = soloFitChord(c.pcs, scaleSet);
+        fitSum += f;
+        if (f >= 1) fitCount += 1;
+      }
+      const cover = total ? fitSum / total : 0;
+      let score = cover * 10;
+      score += def.moods[catalogMood] || def.moods[moodId] || 0;
+      if (def.home === keyMode) score += 2.5;
+      else if (def.home === "any") score += 0.5;
+      else if (def.home === "minor" && keyMode === "minor") score += 2.5;
+      else if (def.home === "major" && keyMode === "major") score += 2.5;
+      else if (def.home === "mixo" && keyMode === "mixo") score += 2.5;
+      // пентатоника чуть ниже полной диатоники при равном покрытии
+      if (def.safe && cover >= 0.99) score -= 0.35;
+      // blues всегда полезен как краска, но не вытесняет идеальный aeolian
+      if (def.id === "blues") score += 0.4;
+
+      // дорийская VI / лидийская #IV — диезы читаются яснее, чем Gb от Am
+      let modeFlats = flats;
+      if (def.intervals.includes(6) || (homeMinor && def.intervals.includes(9))) modeFlats = false;
+      if (def.intervals.includes(1) || def.intervals.includes(8)) modeFlats = degPreferFlats(parsed.root, true);
+
+      const notes = def.intervals.map((iv) =>
+        degSpell(degTrans(parsed.root, iv, modeFlats), modeFlats)
+      );
+      const charHint = soloCharHint(def, parsed.root, modeFlats, degrees, false);
+      const charHintPlain = soloCharHint(def, parsed.root, modeFlats, degrees, true);
+      const midis = soloScaleMidis(tonicPc, def.intervals);
+
+      return {
+        id: def.id,
+        namePlain: def.namePlain,
+        namePro: `${def.namePro} (${tonic})`,
+        whyPlain: soloWhy(def, {
+          fitCount,
+          total,
+          degrees,
+          charHint: charHintPlain,
+          plain: true,
+        }),
+        whyPro: soloWhy(def, {
+          fitCount,
+          total,
+          degrees,
+          charHint,
+          plain: false,
+        }),
+        notes,
+        intervals: def.intervals.slice(),
+        midis,
+        fitCount,
+        total,
+        score,
+        safe: !!def.safe,
+      };
+    })
+      .filter((m) => m.fitCount > 0 || m.safe || m.score >= 4)
+      .sort((a, b) => b.score - a.score);
+
+    const limit = opts.limit || 3;
+    let modes = ranked.slice(0, limit);
+    if (!modes.some((m) => m.safe)) {
+      const safe = ranked.find((m) => m.safe && (m.fitCount >= 1 || m.score >= 5));
+      if (safe && modes.length >= limit) {
+        modes = modes.slice(0, limit - 1).concat(safe);
+      } else if (safe && modes.length < limit) {
+        modes = modes.concat(safe);
+      }
+    }
+    if (!modes.length) return null;
+
+    return {
+      start: tonic + (homeMinor ? "m" : parsed.isDom7 ? "7" : ""),
+      home: tonic,
+      path: slotItem.path.slice(),
+      degrees,
+      moodId,
+      modes,
+    };
+  }
+
+  function soloModeTitle(mode, voice) {
+    if (!mode) return "";
+    return (voice || getVoice()) === "plain" ? mode.namePlain : mode.namePro;
+  }
+
+  function soloModeWhy(mode, voice) {
+    if (!mode) return "";
+    return (voice || getVoice()) === "plain" ? mode.whyPlain : mode.whyPro;
+  }
+
   global.LadTheory = {
     GLOSSARY,
     GLOSSARY_ENTRIES,
@@ -1252,5 +1563,8 @@
     renderDegreesScreen,
     bindDegreesScreen,
     renderDegreesLink,
+    suggestSoloModes,
+    soloModeTitle,
+    soloModeWhy,
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1630,3 +1630,123 @@ button[data-open-degrees].btn-glow {
 .degree-row__diag .diag-row {
   justify-content: flex-start;
 }
+
+/* ----- Solo modes on Дорожка ----- */
+.solo-suggest {
+  margin: 1.25rem 0 0.5rem;
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(240, 163, 90, 0.28);
+  background:
+    linear-gradient(160deg, rgba(42, 28, 18, 0.72), rgba(14, 10, 8, 0.55)),
+    rgba(16, 12, 10, 0.8);
+}
+.solo-suggest.is-locked {
+  border-style: dashed;
+  opacity: 0.95;
+}
+.solo-suggest__title {
+  margin: 0.15rem 0 0.35rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.solo-slot-label {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.82rem;
+  color: var(--ink-mute);
+}
+.solo-slot-select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(10, 8, 6, 0.85);
+  color: var(--ink);
+  font: inherit;
+}
+.solo-mode-list {
+  display: grid;
+  gap: 0.85rem;
+}
+.solo-mode {
+  padding: 0.85rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(12, 9, 7, 0.55);
+}
+.solo-mode.is-top {
+  border-color: rgba(240, 163, 90, 0.42);
+}
+.solo-mode__head {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+.solo-mode__rank {
+  margin: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1a120c;
+  background: var(--accent);
+}
+.solo-mode__name {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.solo-mode__notes {
+  margin: 0.2rem 0 0;
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.solo-mode__why {
+  margin: 0.55rem 0 0.65rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.scale-diag-block {
+  margin-top: 0.35rem;
+}
+.scale-boxes {
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.scale-box-diag figcaption {
+  color: var(--ink-mute);
+  font-size: 0.72rem;
+}
+.scale-play-btn {
+  margin-top: 0.55rem;
+}
+.scale-note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.scale-note-chip {
+  padding: 0.28rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.scale-note-chip.is-root {
+  border-color: rgba(240, 163, 90, 0.55);
+  color: #1a120c;
+  background: var(--accent);
+  font-weight: 700;
+}

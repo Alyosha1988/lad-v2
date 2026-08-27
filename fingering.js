@@ -693,6 +693,193 @@ function refreshAllPathDiagrams() {
     const next = tmp.firstElementChild;
     if (next) block.replaceWith(next);
   });
+  document.querySelectorAll(".scale-diag-block[data-scale-notes]").forEach((block) => {
+    const notes = block.dataset.scaleNotes.split("|").filter(Boolean);
+    const root = block.dataset.scaleRoot || notes[0] || "";
+    const label = block.dataset.scaleLabel || "";
+    const midis = block.dataset.scaleMidis || "";
+    if (!notes.length) return;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = renderScaleDiagrams(notes, {
+      root,
+      label,
+      midis: midis ? midis.split(",").map((n) => parseInt(n, 10)) : null,
+    });
+    const next = tmp.firstElementChild;
+    if (next) block.replaceWith(next);
+  });
+}
+
+/* ---------- Scale boxes / позиции ---------- */
+
+const SCALE_OPEN_MIDI = [40, 45, 50, 55, 59, 64]; // E A D G B E
+const SCALE_OPEN_PC = SCALE_OPEN_MIDI.map((m) => m % 12);
+
+function scaleNotePc(note) {
+  const m = String(note || "")
+    .trim()
+    .match(/^([A-G][b#]?)/i);
+  if (!m) return -1;
+  return rootIndex(canonicalRoot(m[1]));
+}
+
+function findScaleBoxBases(rootPc) {
+  const candidates = [];
+  for (let fret = 0; fret <= 12; fret++) {
+    for (let s = 0; s <= 1; s++) {
+      if ((SCALE_OPEN_PC[s] + fret) % 12 === rootPc) {
+        const windowBase = fret <= 1 ? 0 : fret;
+        if (!candidates.includes(windowBase)) candidates.push(windowBase);
+      }
+    }
+  }
+  candidates.sort((a, b) => a - b);
+  const first = candidates[0] ?? 0;
+  const second = candidates.find((b) => b >= first + 4) ?? first + 5;
+  const out = [first];
+  if (second <= 12 && second !== first) out.push(second);
+  return out.slice(0, 2);
+}
+
+function renderScaleBoxSvg(pcs, rootPc, baseFret, opts = {}) {
+  const showFrets = 5;
+  const w = opts.width || 118;
+  const h = opts.height || 132;
+  const padL = 16;
+  const padR = 10;
+  const padT = 28;
+  const padB = 12;
+  const gridW = w - padL - padR;
+  const gridH = h - padT - padB;
+  const stringXs = [0, 1, 2, 3, 4, 5].map((i) => padL + (gridW * i) / 5);
+  const fretYs = [0, 1, 2, 3, 4, 5].map((i) => padT + (gridH * i) / 5);
+  const pcSet = new Set(pcs.map((p) => ((p % 12) + 12) % 12));
+  const fromFret = baseFret <= 1 ? 0 : baseFret;
+  const toFret = baseFret <= 1 ? 5 : baseFret + 4;
+
+  let marks = "";
+  if (baseFret <= 1) {
+    marks += `<rect x="${padL - 1}" y="${padT - 3}" width="${gridW + 2}" height="3.5" fill="#f0a35a"/>`;
+  } else {
+    marks += `<text x="${padL - 5}" y="${padT + gridH / 10 + 3}" fill="#c9b59a" font-size="9" font-family="Source Sans 3,sans-serif" text-anchor="end">${baseFret}fr</text>`;
+  }
+
+  for (const x of stringXs) {
+    marks += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + gridH}" stroke="#f0a35a" stroke-width="1" opacity="0.45"/>`;
+  }
+  for (const y of fretYs) {
+    marks += `<line x1="${padL}" y1="${y}" x2="${padL + gridW}" y2="${y}" stroke="#f0a35a" stroke-width="1" opacity="0.35"/>`;
+  }
+
+  for (let s = 0; s < 6; s++) {
+    for (let fretNum = fromFret; fretNum <= toFret; fretNum++) {
+      const pc = (SCALE_OPEN_PC[s] + fretNum) % 12;
+      if (!pcSet.has(pc)) continue;
+      const x = stringXs[s];
+      const isRoot = pc === rootPc;
+      if (fretNum === 0) {
+        marks += `<circle cx="${x}" cy="${padT - 11}" r="${isRoot ? 4.4 : 3.4}" fill="${isRoot ? "#f0a35a" : "none"}" stroke="#f0a35a" stroke-width="1.4"/>`;
+        continue;
+      }
+      const relF = baseFret <= 1 ? fretNum : fretNum - baseFret + 1;
+      if (relF < 1 || relF > showFrets) continue;
+      const y = padT + ((relF - 0.5) * gridH) / 5;
+      if (isRoot) {
+        marks += `<circle cx="${x}" cy="${y}" r="6" fill="#f0a35a" stroke="#ffc078" stroke-width="1.2"/>`;
+        marks += `<text x="${x}" y="${y + 3.2}" text-anchor="middle" fill="#1a120c" font-size="8" font-weight="700" font-family="Source Sans 3,sans-serif">R</text>`;
+      } else {
+        marks += `<circle cx="${x}" cy="${y}" r="4.6" fill="#2a2118" stroke="#f0a35a" stroke-width="1.1"/>`;
+      }
+    }
+  }
+
+  const title = opts.title || (baseFret <= 1 ? "Бокс 1" : `Бокс · ${baseFret}fr`);
+  return `
+    <figure class="chord-diag scale-box-diag">
+      <svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="Бокс ${title}">
+        <text x="${w / 2}" y="14" text-anchor="middle" fill="#f3e6d4" font-size="11" font-weight="600" font-family="Cormorant Garamond,Georgia,serif">${title}</text>
+        ${marks}
+      </svg>
+      <figcaption>${title}</figcaption>
+    </figure>
+  `;
+}
+
+function renderScalePianoStrip(notes, rootNote, opts = {}) {
+  const pcs = notes.map(scaleNotePc).filter((n) => n >= 0);
+  const rootPc = scaleNotePc(rootNote);
+  const white = [0, 2, 4, 5, 7, 9, 11];
+  // две октавы от C3-ish visual
+  let keys = "";
+  for (let oct = 0; oct < 2; oct++) {
+    for (let i = 0; i < 12; i++) {
+      const pc = i;
+      const on = pcs.includes(pc);
+      const isRoot = on && pc === rootPc;
+      const isBlack = !white.includes(pc);
+      if (isBlack) continue;
+      keys += `<span class="scale-key ${on ? "is-on" : ""} ${isRoot ? "is-root" : ""}" data-pc="${pc}"></span>`;
+    }
+  }
+  // black keys overlay simplified as note chips instead — clearer on mobile
+  const chips = notes
+    .map((n) => {
+      const root = scaleNotePc(n) === rootPc;
+      return `<span class="scale-note-chip ${root ? "is-root" : ""}">${n}</span>`;
+    })
+    .join("");
+  return `
+    <div class="scale-piano-strip">
+      <p class="diag-hint">Ноты лада на клавишах · корень выделен</p>
+      <div class="scale-note-chips">${chips}</div>
+    </div>
+  `;
+}
+
+function renderScaleDiagrams(notes, opts = {}) {
+  const list = (notes || []).filter(Boolean);
+  if (!list.length) return "";
+  const root = opts.root || list[0];
+  const rootPc = scaleNotePc(root);
+  const pcs = list.map(scaleNotePc).filter((n) => n >= 0);
+  const midis = opts.midis || null;
+  const playAttr =
+    midis && midis.length
+      ? `data-play-melody="${midis.join(",")}"`
+      : "";
+  const instrument = currentDiagramInstrument();
+  const isPiano = instrument === "piano";
+
+  let body = "";
+  if (isPiano) {
+    body = renderScalePianoStrip(list, root, opts);
+  } else {
+    const bases = findScaleBoxBases(rootPc);
+    body = bases
+      .map((b, i) =>
+        renderScaleBoxSvg(pcs, rootPc, b, {
+          title: i === 0 ? (b <= 1 ? "Бокс 1" : `Бокс · ${b}fr`) : `Бокс · ${b}fr`,
+        })
+      )
+      .join("");
+  }
+
+  const label = opts.label ? `<p class="diag-hint">${opts.label}</p>` : "";
+  return `
+    <div class="scale-diag-block diag-block"
+         data-scale-notes="${list.join("|")}"
+         data-scale-root="${root}"
+         data-scale-label="${opts.label || ""}"
+         data-scale-midis="${midis ? midis.join(",") : ""}">
+      ${label}
+      <div class="diag-row diag-sequence scale-boxes">${body}</div>
+      ${
+        playAttr
+          ? `<button type="button" class="btn btn-glow btn-tiny scale-play-btn" ${playAttr} aria-label="Проиграть лад">▶ Проиграть лад</button>`
+          : ""
+      }
+    </div>
+  `;
 }
 
 if (typeof window !== "undefined") {
@@ -703,6 +890,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     getVoicings,
     renderPathDiagrams,
+    renderScaleDiagrams,
     pickGuitarSequence,
     pickPianoSequence,
     normalizeQuality,

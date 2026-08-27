@@ -529,14 +529,18 @@ function flashPlaying(el) {
 }
 
 function handlePlayEvent(e) {
-  const playBtn = e.target.closest("[data-play-frets], [data-play-chord], [data-play-notes]");
+  const playBtn = e.target.closest(
+    "[data-play-frets], [data-play-chord], [data-play-notes], [data-play-melody]"
+  );
   if (!playBtn) return false;
   e.preventDefault();
   e.stopPropagation();
   unlockAudio();
   flashPlaying(playBtn);
   try {
-    if (playBtn.dataset.playNotes) {
+    if (playBtn.dataset.playMelody) {
+      playMelody(playBtn.dataset.playMelody.split(",").map((n) => parseInt(n, 10)));
+    } else if (playBtn.dataset.playNotes) {
       playMidiNotes(playBtn.dataset.playNotes.split(",").map((n) => parseInt(n, 10)));
     } else if (playBtn.dataset.playFrets) {
       playVoicing(parseFrets(playBtn.dataset.playFrets));
@@ -572,6 +576,34 @@ function playMidiNotes(midis) {
   return true;
 }
 
+/** Последовательная гамма / мотив (не кластер). */
+function playMelody(midis, opts = {}) {
+  const ctx = unlockAudio();
+  if (!ctx || !midis?.length) return false;
+  const clean = midis.map((n) => parseInt(n, 10)).filter((n) => Number.isFinite(n));
+  if (!clean.length) return false;
+  const instrument = currentInstrument;
+  const style = instrumentPlayStyle(instrument);
+  const dest = destinationFor(instrument, ctx);
+  const gap = (opts.gapMs ?? 155) / 1000;
+  const noteDur = opts.duration ?? Math.min(0.42, style.duration * 0.55);
+  const gen = ++playGeneration;
+  const jobs = clean.map((m, i) => loadSample(instrument, m, 100 - i));
+  settleWithTimeout(jobs, Math.max(PLAY_WAIT_MS, 140)).then((buffers) => {
+    if (gen !== playGeneration) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    const start = ctx.currentTime + 0.03;
+    clean.forEach((m, i) => {
+      const when = start + i * gap;
+      const buf = buffers[i];
+      const g = style.gain * (0.88 + (i === 0 || i === clean.length - 1 ? 0.08 : 0));
+      if (buf) playBuffer(ctx, buf, when, g, dest, noteDur, { ...style, strum: 0 });
+      else synthFallback(ctx, midiToFreq(m), when, noteDur, g * 0.5, dest, instrument);
+    });
+  });
+  return true;
+}
+
 function handleInstrumentEvent(e) {
   const btn = e.target.closest("[data-instrument]");
   if (!btn) return false;
@@ -600,7 +632,7 @@ function bindAudioEvents(root = document) {
   const onPointer = (e) => {
     if (e.type === "pointerup" && e.pointerType === "mouse" && e.button !== 0) return;
     const el =
-      e.target.closest?.("[data-instrument], [data-play-frets], [data-play-chord], [data-play-notes]") ||
+      e.target.closest?.("[data-instrument], [data-play-frets], [data-play-chord], [data-play-notes], [data-play-melody]") ||
       null;
     if (!el) return;
     const now = Date.now();
@@ -646,6 +678,8 @@ if (typeof document !== "undefined") {
 const LadAudioAPI = {
   playVoicing,
   playChord,
+  playMidiNotes,
+  playMelody,
   fretsToNotes,
   parseFrets,
   midiToFreq,

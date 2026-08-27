@@ -64,6 +64,10 @@ const state = {
   glossaryQuery: "",
   glossaryFocus: null,
   pdfPreview: false,
+  soloSuggest: {
+    open: false,
+    slotId: null,
+  },
 };
 
 const stage = document.getElementById("stage");
@@ -999,6 +1003,129 @@ function currentSongIsEmpty() {
   return !SONG_SLOTS.some((s) => state.song[s.id]?.path?.length);
 }
 
+function defaultSoloSlotId() {
+  if (state.soloSuggest.slotId && state.song[state.soloSuggest.slotId]) {
+    return state.soloSuggest.slotId;
+  }
+  for (const id of ["chorus", "verse", "bridge", "intro"]) {
+    if (state.song[id]?.path?.length) return id;
+  }
+  return null;
+}
+
+function renderSoloSuggestBlock(filled, plus) {
+  if (!filled.length) return "";
+
+  if (!plus) {
+    return `
+      <section class="solo-suggest is-locked">
+        <p class="kicker">После дорожки</p>
+        <h2 class="solo-suggest__title">Лад для соло</h2>
+        <p class="hand-note">Подберём 2–3 лада под выбранную часть формы, с боксами и прослушиванием.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-glow" data-open-lad-plus>Открыть в Лад+</button>
+        </div>
+      </section>`;
+  }
+
+  if (!state.soloSuggest.open) {
+    return `
+      <section class="solo-suggest">
+        <p class="kicker">После дорожки</p>
+        <h2 class="solo-suggest__title">Лад для соло</h2>
+        <p class="hand-note">Когда форма собрана — сразу подходящие лады над куплетом / припевом.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-glow" id="openSoloSuggest">Подобрать лад для соло</button>
+        </div>
+      </section>`;
+  }
+
+  const slotId = defaultSoloSlotId();
+  const item = slotId ? state.song[slotId] : null;
+  const slotMeta = SONG_SLOTS.find((s) => s.id === slotId);
+  const suggestion =
+    item && typeof LadTheory !== "undefined"
+      ? LadTheory.suggestSoloModes(item, { moodId: item.mood })
+      : null;
+  const voice = typeof LadTheory !== "undefined" ? LadTheory.getVoice() : "plain";
+  const voiceToggle =
+    typeof LadTheory !== "undefined" ? LadTheory.renderVoiceToggleMini() : "";
+
+  const options = filled
+    .map((slot) => {
+      const it = state.song[slot.id];
+      const sel = slot.id === slotId ? "selected" : "";
+      return `<option value="${slot.id}" ${sel}>${slot.title} · ${it.path.join(" → ")}</option>`;
+    })
+    .join("");
+
+  let modesHtml = "";
+  if (!suggestion?.modes?.length) {
+    modesHtml = `<p class="hand-note">Не удалось подобрать лад для этого хода. Попробуйте другую часть формы.</p>`;
+  } else {
+    modesHtml = suggestion.modes
+      .map((mode, idx) => {
+        const title = LadTheory.soloModeTitle(mode, voice);
+        const why = LadTheory.soloModeWhy(mode, voice);
+        const notes = mode.notes.join(" · ");
+        const diagrams =
+          typeof renderScaleDiagrams === "function"
+            ? renderScaleDiagrams(mode.notes, {
+                root: suggestion.home,
+                label: idx === 0 ? "Позиции на грифе · R = корень" : "",
+                midis: mode.midis,
+              })
+            : "";
+        return `
+          <article class="solo-mode ${idx === 0 ? "is-top" : ""}">
+            <div class="solo-mode__head">
+              <p class="solo-mode__rank">${idx + 1}</p>
+              <div>
+                <h3 class="solo-mode__name">${title}</h3>
+                <p class="solo-mode__notes">${notes}</p>
+              </div>
+            </div>
+            <p class="solo-mode__why">${why}</p>
+            ${diagrams}
+          </article>`;
+      })
+      .join("");
+  }
+
+  return `
+    <section class="solo-suggest is-open" id="soloSuggestPanel">
+      <p class="kicker">Лад для соло</p>
+      <h2 class="solo-suggest__title">Над какой частью играть?</h2>
+      <p class="hand-note">
+        ${
+          suggestion
+            ? `Центр ${suggestion.start} · ступени ${suggestion.degrees || "—"}`
+            : slotMeta
+              ? `Часть: ${slotMeta.title}`
+              : "Выберите заполненную часть формы"
+        }
+      </p>
+      ${voiceToggle}
+      <label class="solo-slot-label">
+        <span>Соло над</span>
+        <select id="soloSlotSelect" class="solo-slot-select" aria-label="Часть формы для соло">
+          ${options}
+        </select>
+      </label>
+      <div class="solo-mode-list">
+        ${modesHtml}
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" id="closeSoloSuggest">Свернуть</button>
+        ${
+          suggestion?.home
+            ? `<button type="button" class="btn btn-ghost" data-open-degrees>Ступени от ${suggestion.start}</button>`
+            : ""
+        }
+      </div>
+    </section>`;
+}
+
 function renderSong() {
   const mood = moodById(state.mood);
   const filled = SONG_SLOTS.filter((s) => state.song[s.id]);
@@ -1060,6 +1187,7 @@ function renderSong() {
           </div>`;
       }).join("")}
     </div>
+    ${renderSoloSuggestBlock(filled, plus)}
     ${previewHtml}
     <p class="song-save-status" id="songSaveStatus" hidden></p>
     <div class="actions">
@@ -1089,6 +1217,33 @@ function renderSong() {
     el.textContent = text;
   };
 
+  document.getElementById("openSoloSuggest")?.addEventListener("click", () => {
+    state.soloSuggest.open = true;
+    state.soloSuggest.slotId = defaultSoloSlotId();
+    const item = state.song[state.soloSuggest.slotId];
+    if (item?.start) state.start = item.start;
+    if (item?.mood) state.mood = item.mood;
+    renderSong();
+    requestAnimationFrame(() => {
+      document.getElementById("soloSuggestPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.getElementById("closeSoloSuggest")?.addEventListener("click", () => {
+    state.soloSuggest.open = false;
+    renderSong();
+  });
+  document.getElementById("soloSlotSelect")?.addEventListener("change", (e) => {
+    state.soloSuggest.slotId = e.target.value;
+    state.soloSuggest.open = true;
+    const item = state.song[state.soloSuggest.slotId];
+    if (item?.start) state.start = item.start;
+    if (item?.mood) state.mood = item.mood;
+    renderSong();
+    requestAnimationFrame(() => {
+      document.getElementById("soloSuggestPanel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
   const loadFromDevice = () => {
     if (restoreSavedSong()) {
       state.pdfPreview = false;
@@ -1102,8 +1257,13 @@ function renderSong() {
 
   stage.querySelectorAll("[data-clear-slot]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.song[btn.dataset.clearSlot] = null;
+      const id = btn.dataset.clearSlot;
+      state.song[id] = null;
       state.pdfPreview = false;
+      if (state.soloSuggest.slotId === id) {
+        state.soloSuggest.slotId = defaultSoloSlotId();
+        if (!state.soloSuggest.slotId) state.soloSuggest.open = false;
+      }
       renderSong();
     });
   });
@@ -1129,6 +1289,7 @@ function renderSong() {
   document.getElementById("resetSong").addEventListener("click", () => {
     SONG_SLOTS.forEach((s) => (state.song[s.id] = null));
     state.pdfPreview = false;
+    state.soloSuggest = { open: false, slotId: null };
     renderSong();
   });
   document.getElementById("saveSong")?.addEventListener("click", () => {

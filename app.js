@@ -1170,6 +1170,41 @@ function renderSoloSuggestBlock(filled, plus) {
     </section>`;
 }
 
+function bindMelodyPlayButtons(root) {
+  root.querySelectorAll("[data-play-melody]").forEach((btn) => {
+    if (btn.__ladMelodyBound) return;
+    btn.__ladMelodyBound = true;
+    let last = 0;
+    const play = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - last < 320) return;
+      last = now;
+      const raw = btn.dataset.playMelody;
+      if (!raw || typeof window.LadAudio === "undefined") return;
+      const midis = raw
+        .split(",")
+        .map((n) => parseInt(n, 10))
+        .filter((n) => Number.isFinite(n));
+      if (!midis.length) return;
+      LadAudio.unlockAudio?.();
+      LadAudio.playMelody?.(midis);
+    };
+    btn.addEventListener("pointerup", play);
+    btn.addEventListener("click", play);
+  });
+}
+
+function prefetchSoloMelodies() {
+  if (!state.soloSuggest.open || typeof LadTheory === "undefined") return;
+  const slotId = defaultSoloSlotId();
+  const item = slotId ? state.song[slotId] : null;
+  if (!item || typeof window.LadAudio === "undefined") return;
+  const suggestion = LadTheory.suggestSoloModes(item, { moodId: item.mood });
+  suggestion?.modes?.forEach((m) => LadAudio.prefetchMelody?.(m.midis, 55));
+}
+
 function renderSong() {
   const mood = moodById(state.mood);
   const filled = SONG_SLOTS.filter((s) => state.song[s.id]);
@@ -1257,6 +1292,8 @@ function renderSong() {
     </div>
   `;
   bindTheoryHooks(stage);
+  bindMelodyPlayButtons(stage);
+  prefetchSoloMelodies();
 
   const flashSaveStatus = (text) => {
     const el = document.getElementById("songSaveStatus");

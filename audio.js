@@ -46,6 +46,7 @@ const loadQueue = [];
 const activeJobs = new Map();
 let activeLoads = 0;
 let playGeneration = 0;
+let melodyGeneration = 0;
 let warmTimer = null;
 
 let currentInstrument =
@@ -576,7 +577,7 @@ function playMidiNotes(midis) {
   return true;
 }
 
-/** Последовательная гамма / мотив (не кластер). */
+/** Последовательная гамма / мотив (не кластер). Ноты планируются по мере загрузки. */
 function playMelody(midis, opts = {}) {
   const ctx = unlockAudio();
   if (!ctx || !midis?.length) return false;
@@ -585,23 +586,28 @@ function playMelody(midis, opts = {}) {
   const instrument = currentInstrument;
   const style = instrumentPlayStyle(instrument);
   const dest = destinationFor(instrument, ctx);
-  const gap = (opts.gapMs ?? 155) / 1000;
-  const noteDur = opts.duration ?? Math.min(0.42, style.duration * 0.55);
-  const gen = ++playGeneration;
-  const jobs = clean.map((m, i) => loadSample(instrument, m, 100 - i));
-  settleWithTimeout(jobs, Math.max(PLAY_WAIT_MS, 140)).then((buffers) => {
-    if (gen !== playGeneration) return;
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    const start = ctx.currentTime + 0.03;
-    clean.forEach((m, i) => {
-      const when = start + i * gap;
-      const buf = buffers[i];
-      const g = style.gain * (0.88 + (i === 0 || i === clean.length - 1 ? 0.08 : 0));
+  const gap = (opts.gapMs ?? 165) / 1000;
+  const noteDur = opts.duration ?? Math.min(0.48, style.duration * 0.62);
+  const gen = ++melodyGeneration;
+  const t0 = ctx.currentTime + 0.04;
+
+  clean.forEach((m, i) => {
+    loadSample(instrument, m, 96 - i).then((buf) => {
+      if (gen !== melodyGeneration) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const when = t0 + i * gap;
+      const g = style.gain * (0.9 + (i === 0 || i === clean.length - 1 ? 0.1 : 0));
       if (buf) playBuffer(ctx, buf, when, g, dest, noteDur, { ...style, strum: 0 });
-      else synthFallback(ctx, midiToFreq(m), when, noteDur, g * 0.5, dest, instrument);
+      else synthFallback(ctx, midiToFreq(m), when, noteDur, g * 0.58, dest, instrument);
     });
   });
   return true;
+}
+
+function prefetchMelody(midis, priority = 70) {
+  if (!midis?.length) return;
+  const instrument = currentInstrument;
+  midis.forEach((m, i) => loadSample(instrument, m, priority - i));
 }
 
 function handleInstrumentEvent(e) {
@@ -642,11 +648,20 @@ function bindAudioEvents(root = document) {
   };
 
   root.addEventListener("pointerup", onPointer, true);
-  // клавиатура / старые клиенты без Pointer Events
+  // клавиатура / старые клиенты без Pointer Events; iOS — запасной click
   root.addEventListener(
     "click",
     (e) => {
-      if (window.PointerEvent) return;
+      const el =
+        e.target.closest?.(
+          "[data-instrument], [data-play-frets], [data-play-chord], [data-play-notes], [data-play-melody]"
+        ) || null;
+      if (!el) {
+        if (!window.PointerEvent) onPointer(e);
+        return;
+      }
+      const now = Date.now();
+      if (now - (lastByEl.get(el) || 0) < 380) return;
       onPointer(e);
     },
     true
@@ -680,6 +695,7 @@ const LadAudioAPI = {
   playChord,
   playMidiNotes,
   playMelody,
+  prefetchMelody,
   fretsToNotes,
   parseFrets,
   midiToFreq,

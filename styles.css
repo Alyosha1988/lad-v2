@@ -77,7 +77,12 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 0 1rem calc(5.4rem + env(safe-area-inset-bottom));
+  /* Tabbar ~4.8–5.2rem + запас, чтобы нижние mood-card не уходили под нав */
+  padding: 0 1rem calc(6.75rem + env(safe-area-inset-bottom));
+}
+
+html {
+  scroll-padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
 }
 
 .topbar {
@@ -299,7 +304,8 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: var(--space-3) var(--space-2);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5, 1.5rem);
+  padding-bottom: 0.35rem;
   align-items: start;
 }
 

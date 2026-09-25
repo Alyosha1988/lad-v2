@@ -82,7 +82,7 @@ body {
 
 .topbar {
   display: grid;
-  grid-template-columns: 2.5rem 1fr auto;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
   gap: 0.55rem;
   align-items: center;
   min-height: var(--nav-h);
@@ -105,7 +105,7 @@ body.is-mood-home .topbar {
 body.is-mood-home .brand-wrap { display: none; }
 body.is-mood-home .icon-btn[hidden] { display: none; }
 
-.brand-wrap { text-align: left; }
+.brand-wrap { text-align: left; min-width: 0; overflow: hidden; }
 
 .brand {
   margin: 0;
@@ -115,6 +115,9 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   letter-spacing: var(--tracking-display);
   line-height: 1;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-tag {
@@ -138,7 +141,7 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   cursor: pointer;
 }
 
-.instrument-bar { display: inline-flex; gap: 0.3rem; }
+.instrument-bar { display: inline-flex; gap: 0.3rem; flex-shrink: 0; }
 
 .instrument-btn {
   appearance: none;
@@ -271,8 +274,8 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   width: 100%;
   height: 7.4rem;
   object-fit: cover;
-  object-position: center 40%;
-  filter: brightness(1.35) saturate(0.75) contrast(0.92);
+  object-position: center 45%;
+  filter: none;
 }
 
 .section-title {
@@ -363,7 +366,7 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
   object-position: center;
   border-radius: 50%;
   display: block;
-  filter: brightness(1.08) contrast(0.98) saturate(0.92);
+  filter: none;
 }
 
 .mood-card .title {
@@ -780,9 +783,10 @@ body.is-mood-home .icon-btn[hidden] { display: none; }
 
 .map-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
   margin-bottom: var(--space-2);
 }
 
@@ -1880,4 +1884,125 @@ button[data-open-degrees].btn-glow {
 .nmap-deg {
   fill: var(--accent);
   stroke: #ffffff;
+}
+
+/* ----- no text overlap (desktop + mobile) ----- */
+.shell {
+  overflow-x: clip;
+}
+.stage,
+.hero-copy,
+.map-hero-copy,
+.song-part,
+.path-card,
+.panel {
+  min-width: 0;
+}
+.hero-copy .hand,
+.section-hand,
+.map-lead,
+.hand-note,
+.lead {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.mood-card .title,
+.mood-card .desc {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.mood-card .desc {
+  padding: 0 0.15rem;
+}
+.mood-card .mood-mode-line {
+  max-width: 100%;
+  padding: 0 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  letter-spacing: var(--tracking-body);
+}
+.mood-pill {
+  max-width: min(100%, 12rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.path-card .route,
+.song-part .route,
+.map-focus-route,
+.h1,
+.map-title {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.ink-banner {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ink-banner .title,
+.ink-banner .sub {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tab {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabbar {
+  gap: 0.15rem;
+}
+.chord-grid {
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+}
+.chord-pick {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+@media (max-width: 420px) {
+  .hero-copy .brand-hero {
+    font-size: clamp(2.1rem, 11vw, 2.6rem);
+  }
+  .hero-art {
+    max-width: 100%;
+    margin-left: 0;
+  }
+  .mood-orbit .mood-card {
+    max-width: 100%;
+  }
+  .mood-card .ring {
+    width: 5.6rem;
+    height: 5.6rem;
+  }
+  .mood-card .title {
+    font-size: 1.05rem;
+  }
+  .map-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mood-pill {
+    align-self: flex-start;
+  }
+  .map-title {
+    font-size: clamp(1.55rem, 8vw, 1.95rem);
+  }
+  .ink-banner {
+    gap: 0.55rem;
+    padding: 0.75rem 0.95rem;
+  }
+  .lad-plus-prices {
+    grid-template-columns: 1fr;
+  }
+  .topbar {
+    gap: 0.35rem;
+  }
+  .brand {
+    font-size: 1.2rem;
+  }
 }

@@ -1,7 +1,7 @@
 /**
  * Лад — Song Companion v2
  * Комната настроения → аккорд → карта → ход → дорожка
- * Стиль: ночная топография + янтарное свечение.
+ * Стиль: светлый apple-язык (хаб / apple-style-spec).
  */
 
 const V2_MOODS = [
@@ -287,7 +287,7 @@ function renderMood() {
         <p class="hand">Исследуй связи между аккордами. Собирай гармоничные пути.</p>
       </div>
       <figure class="hero-art">
-        <img src="icons/hero_night_landscape.jpg" alt="" />
+        <img src="icons/hero_light_landscape.jpg" alt="" />
       </figure>
     </section>
 

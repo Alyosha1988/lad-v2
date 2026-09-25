@@ -364,15 +364,15 @@ function drawSongExportCanvas(data) {
     y += 30;
   }
 
-  probe.font = "700 28px 'Cormorant Garamond', Georgia, serif";
+  probe.font = "700 28px Manrope, system-ui, sans-serif";
   data.parts.forEach((part, idx) => {
     const routeLines = wrapCanvasText(probe, part.route, contentW - 32);
     const meta = [part.moodTitle, part.family, part.kind].filter(Boolean).join(" · ");
-    probe.font = "500 12px 'Source Sans 3', system-ui, sans-serif";
+    probe.font = "500 12px Manrope, system-ui, sans-serif";
     const theoryLines = part.theory
       ? wrapCanvasText(probe, part.theory, contentW - 32)
       : [];
-    probe.font = "700 28px 'Cormorant Garamond', Georgia, serif";
+    probe.font = "700 28px Manrope, system-ui, sans-serif";
     const metrics = diagramRowMetrics(part.diagrams, contentW);
     const diagramsH = metrics.rows ? 18 + metrics.rows * metrics.rowH : 0;
     const theoryH = theoryLines.length ? theoryLines.length * 16 + 8 : 0;
@@ -395,7 +395,7 @@ function drawSongExportCanvas(data) {
     y += 8;
     layout.push({ type: "linear-title", y });
     y += 22;
-    probe.font = "500 14px 'Source Sans 3', system-ui, sans-serif";
+    probe.font = "500 14px Manrope, system-ui, sans-serif";
     const linear = data.parts.map((p) => `${p.title}: ${p.route}`).join("   |   ");
     const linearLines = wrapCanvasText(probe, linear, contentW);
     layout.push({ type: "linear", y, lines: linearLines });
@@ -419,15 +419,15 @@ function drawSongExportCanvas(data) {
   layout.forEach((item) => {
     if (item.type === "title") {
       ctx.fillStyle = "#1a120c";
-      ctx.font = "700 42px 'Cormorant Garamond', Georgia, serif";
+      ctx.font = "700 42px Manrope, system-ui, sans-serif";
       ctx.fillText(data.brand, margin, item.y);
     } else if (item.type === "tag") {
       ctx.fillStyle = "#6e655a";
-      ctx.font = "600 13px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "600 13px Manrope, system-ui, sans-serif";
       ctx.fillText(data.tagline.toUpperCase(), margin, item.y);
     } else if (item.type === "meta") {
       ctx.fillStyle = "#3f3832";
-      ctx.font = "500 15px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "500 15px Manrope, system-ui, sans-serif";
       const metaBits = [
         data.moodTitle ? `Настроение: ${data.moodTitle}` : null,
         data.start ? `Тоника: ${data.start}` : null,
@@ -444,11 +444,11 @@ function drawSongExportCanvas(data) {
       ctx.stroke();
     } else if (item.type === "heading") {
       ctx.fillStyle = "#1a120c";
-      ctx.font = "700 26px 'Cormorant Garamond', Georgia, serif";
+      ctx.font = "700 26px Manrope, system-ui, sans-serif";
       ctx.fillText("Аккордовая последовательность", margin, item.y);
     } else if (item.type === "empty") {
       ctx.fillStyle = "#6e655a";
-      ctx.font = "500 16px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "500 16px Manrope, system-ui, sans-serif";
       ctx.fillText("На дорожке пока нет ходов.", margin, item.y);
     } else if (item.type === "part") {
       const top = item.y - 8;
@@ -460,11 +460,11 @@ function drawSongExportCanvas(data) {
       ctx.stroke();
 
       ctx.fillStyle = "#d97835";
-      ctx.font = "700 12px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "700 12px Manrope, system-ui, sans-serif";
       ctx.fillText(item.part.title.toUpperCase(), margin + 16, item.y + 10);
 
       ctx.fillStyle = "#1a120c";
-      ctx.font = "700 28px 'Cormorant Garamond', Georgia, serif";
+      ctx.font = "700 28px Manrope, system-ui, sans-serif";
       let ry = item.y + 38;
       item.routeLines.forEach((line) => {
         ctx.fillText(line, margin + 16, ry);
@@ -473,7 +473,7 @@ function drawSongExportCanvas(data) {
 
       if (item.meta) {
         ctx.fillStyle = "#6e655a";
-        ctx.font = "500 13px 'Source Sans 3', system-ui, sans-serif";
+        ctx.font = "500 13px Manrope, system-ui, sans-serif";
         ctx.fillText(item.meta, margin + 16, ry + 2);
         ry += 22;
       } else {
@@ -482,7 +482,7 @@ function drawSongExportCanvas(data) {
 
       if (item.theoryLines?.length) {
         ctx.fillStyle = "#4a433c";
-        ctx.font = "500 12px 'Source Sans 3', system-ui, sans-serif";
+        ctx.font = "500 12px Manrope, system-ui, sans-serif";
         item.theoryLines.forEach((line) => {
           ctx.fillText(line, margin + 16, ry);
           ry += 16;
@@ -494,7 +494,7 @@ function drawSongExportCanvas(data) {
       const metrics = item.metrics;
       if (diagrams?.items?.length && metrics?.rows) {
         ctx.fillStyle = "#9a9186";
-        ctx.font = "600 11px 'Source Sans 3', system-ui, sans-serif";
+        ctx.font = "600 11px Manrope, system-ui, sans-serif";
         ctx.fillText(
           metrics.isPiano ? "Аппликатуры · рояль" : "Аппликатуры · гриф",
           margin + 16,
@@ -512,11 +512,11 @@ function drawSongExportCanvas(data) {
       }
     } else if (item.type === "linear-title") {
       ctx.fillStyle = "#1a120c";
-      ctx.font = "700 18px 'Cormorant Garamond', Georgia, serif";
+      ctx.font = "700 18px Manrope, system-ui, sans-serif";
       ctx.fillText("Сквозная линия", margin, item.y);
     } else if (item.type === "linear") {
       ctx.fillStyle = "#3f3832";
-      ctx.font = "500 14px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "500 14px Manrope, system-ui, sans-serif";
       let ly = item.y;
       item.lines.forEach((line) => {
         ctx.fillText(line, margin, ly);
@@ -524,7 +524,7 @@ function drawSongExportCanvas(data) {
       });
     } else if (item.type === "footer") {
       ctx.fillStyle = "#9a9186";
-      ctx.font = "500 11px 'Source Sans 3', system-ui, sans-serif";
+      ctx.font = "500 11px Manrope, system-ui, sans-serif";
       ctx.fillText("Собрано в Лад · alyosha1988.github.io/lad-v2", margin, Math.min(item.y, height - 24));
     }
   });

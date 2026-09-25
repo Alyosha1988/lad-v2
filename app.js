@@ -1,7 +1,7 @@
 /**
  * Лад — Song Companion v2
  * Комната настроения → аккорд → карта → ход → дорожка
- * Стиль: ночная топография + янтарное свечение.
+ * Стиль: светлый apple-язык (хаб / apple-style-spec).
  */
 
 const V2_MOODS = [
@@ -287,7 +287,7 @@ function renderMood() {
         <p class="hand">Исследуй связи между аккордами. Собирай гармоничные пути.</p>
       </div>
       <figure class="hero-art">
-        <img src="icons/hero_night_landscape.jpg" alt="Ночной пейзаж" />
+        <img src="icons/hero_light_landscape.jpg" alt="" />
       </figure>
     </section>
 
@@ -670,20 +670,20 @@ function renderMapGate() {
         <svg viewBox="0 0 280 180" width="100%" height="180">
           <defs>
             <radialGradient id="gGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#f0a35a" stop-opacity="0.9"/>
-              <stop offset="100%" stop-color="#f0a35a" stop-opacity="0"/>
+              <stop offset="0%" stop-color="#0071e3" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#0071e3" stop-opacity="0"/>
             </radialGradient>
           </defs>
           <circle cx="140" cy="90" r="40" fill="url(#gGlow)"/>
-          <circle cx="140" cy="90" r="22" fill="#1a120c" stroke="#f0a35a" stroke-width="2"/>
-          <text x="140" y="94" text-anchor="middle" font-size="15" font-family="Georgia,serif" fill="#f7e7d0">${mood ? "·" : "♪"}</text>
+          <circle cx="140" cy="90" r="22" fill="#ffffff" stroke="#0071e3" stroke-width="2"/>
+          <text x="140" y="94" text-anchor="middle" font-size="15" font-family="system-ui,sans-serif" fill="#1d1d1f">${mood ? "·" : "♪"}</text>
           ${[0, 72, 144, 216, 288]
             .map((deg) => {
               const a = ((deg - 90) * Math.PI) / 180;
               const x2 = 140 + Math.cos(a) * 72;
               const y2 = 90 + Math.sin(a) * 55;
-              return `<line x1="140" y1="90" x2="${x2}" y2="${y2}" stroke="#f0a35a" stroke-width="1.4" opacity="0.55"/>
-                <circle cx="${x2}" cy="${y2}" r="12" fill="#16120f" stroke="#e08a45" stroke-width="1.3"/>`;
+              return `<line x1="140" y1="90" x2="${x2}" y2="${y2}" stroke="#0071e3" stroke-width="1.4" opacity="0.55"/>
+                <circle cx="${x2}" cy="${y2}" r="12" fill="#ffffff" stroke="#0071e3" stroke-width="1.3"/>`;
             })
             .join("")}
         </svg>
